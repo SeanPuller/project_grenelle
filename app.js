@@ -441,7 +441,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const saveBtn = content.querySelector('.btn-large-add');
       saveBtn.addEventListener('click', () => {
           const newTypes = [];
-          content.querySelectorAll('.custom-checkbox input').forEach(cb => {
+          checkboxes.forEach(cb => {
               if (cb.checked) {
                   newTypes.push(cb.dataset.type);
               }
