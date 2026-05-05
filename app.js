@@ -1,4 +1,4 @@
-const APP_VERSION = '0.28';
+const APP_VERSION = '0.29';
 document.addEventListener('DOMContentLoaded', () => {
   const mainContent = document.getElementById('main-content');
   const navLinks = document.querySelectorAll('.nav-link');
@@ -1694,18 +1694,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const mainViews = ['home', 'programs', 'routines', 'exercises'];
 
-  mainContent.addEventListener('touchstart', (e) => {
+  document.addEventListener('touchstart', (e) => {
       touchStartX = e.changedTouches[0].screenX;
       touchStartY = e.changedTouches[0].screenY;
   }, { passive: true });
 
-  mainContent.addEventListener('touchend', (e) => {
+  document.addEventListener('touchend', (e) => {
       touchEndX = e.changedTouches[0].screenX;
       touchEndY = e.changedTouches[0].screenY;
       handleSwipe();
   }, { passive: true });
 
   function handleSwipe() {
+      // Don't swipe if a dialog is open
+      if (document.querySelector('dialog[open]')) return;
+
       const xDiff = touchStartX - touchEndX;
       const yDiff = touchStartY - touchEndY;
       
