@@ -248,7 +248,30 @@ body {
 }
 
 .d-nav-link.active {
-	background-color: var(--primary-color);
+	background-color: #bfff00; /* lime green from mockup */
+	color: var(--text-dark);
+}
+
+.notes-textarea {
+	width: 100%;
+	min-height: 24px;
+	font-family: inherit;
+	font-size: 14px;
+	line-height: 24px;
+	border: none;
+	outline: none;
+	resize: none;
+	background: repeating-linear-gradient(
+		transparent,
+		transparent 23px,
+		#ddd 23px,
+		#ddd 24px
+	);
+	background-attachment: local;
+	padding: 0;
+	margin: 0;
+	overflow: hidden;
+	display: block;
 }
 
 .log-input-section {

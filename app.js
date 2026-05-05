@@ -301,7 +301,7 @@ document.addEventListener('DOMContentLoaded', () => {
   function getExerciseObj(name) {
       let ex = data.exercises.find(e => e.name === name);
       if (!ex) {
-          ex = { name: name, types: ['kg', 'reps'], logs: [] };
+          ex = { name: name, types: ['kg', 'reps'], logs: [], notes: '' };
           data.exercises.push(ex);
       }
       return ex;
@@ -698,6 +698,50 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       const exObj = getExerciseObj(currentExercise);
+
+      // Tab switching logic
+      const tabLinks = content.querySelectorAll('.d-nav-link');
+      const tabLogs = content.getElementById('tab-logs');
+      const tabNotes = content.getElementById('tab-notes');
+      
+      tabLinks.forEach(link => {
+          link.addEventListener('click', (e) => {
+              e.preventDefault();
+              tabLinks.forEach(l => l.classList.remove('active'));
+              link.classList.add('active');
+              
+              if (link.dataset.tab === 'logs') {
+                  tabLogs.style.display = 'block';
+                  tabNotes.style.display = 'none';
+              } else if (link.dataset.tab === 'notes') {
+                  tabLogs.style.display = 'none';
+                  tabNotes.style.display = 'block';
+              } else {
+                  tabLogs.style.display = 'none';
+                  tabNotes.style.display = 'none';
+              }
+          });
+      });
+
+      // Notes textarea persistence
+      const notesArea = content.querySelector('.notes-textarea');
+      if (notesArea) {
+          notesArea.value = exObj.notes || '';
+          
+          const autoResize = () => {
+              notesArea.style.height = '24px';
+              notesArea.style.height = Math.max(24, notesArea.scrollHeight) + 'px';
+          };
+          
+          notesArea.addEventListener('input', (e) => {
+              exObj.notes = e.target.value;
+              autoResize();
+              saveData(); // auto-save on type
+          });
+          
+          setTimeout(autoResize, 0);
+      }
+
       const logSection = content.querySelector('.log-input-section');
       logSection.innerHTML = '';
       

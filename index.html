@@ -98,24 +98,30 @@
 			</div>
 
 			<nav class="detail-nav">
-				<a href="#" class="d-nav-link active">logs</a> <span class="sep">|</span>
-				<a href="#" class="d-nav-link">notes</a> <span class="sep">|</span>
-				<a href="#" class="d-nav-link">graph</a>
+				<a href="#" class="d-nav-link active" data-tab="logs">logs</a> <span class="sep">|</span>
+				<a href="#" class="d-nav-link" data-tab="notes">notes</a> <span class="sep">|</span>
+				<a href="#" class="d-nav-link" data-tab="graph">graph</a>
 			</nav>
 
-			<div class="log-input-section">
-				<div class="input-row">
-					<span class="input-label">s</span>
-					<input type="number" class="val-input" placeholder="">
-					<span class="unit">kg</span>
-					<input type="number" class="val-input" placeholder="">
-					<span class="unit">reps</span>
-					<span class="add-tag-inline">&lt;add tag&gt;</span>
+			<div id="tab-logs">
+				<div class="log-input-section">
+					<div class="input-row">
+						<span class="input-label">s</span>
+						<input type="number" class="val-input" placeholder="">
+						<span class="unit">kg</span>
+						<input type="number" class="val-input" placeholder="">
+						<span class="unit">reps</span>
+						<span class="add-tag-inline">&lt;add tag&gt;</span>
+					</div>
+					<button class="btn-large-add">+</button>
 				</div>
-				<button class="btn-large-add">+</button>
+
+				<div class="history-list">
+				</div>
 			</div>
 
-			<div class="history-list">
+			<div id="tab-notes" style="display: none;">
+				<textarea class="notes-textarea" placeholder=""></textarea>
 			</div>
 		</div>
 	</template>
