@@ -26,9 +26,10 @@ document.addEventListener('DOMContentLoaded', () => {
   
   let currentSelectionCallback = null;
   
-  function openSelectionDialog(title, optionsList, onSelect) {
+  function openSelectionDialog(title, optionsList, onSelect, addNewText = 'add new') {
       sdTitle.textContent = title;
       currentSelectionCallback = onSelect;
+      sdAddNewBtn.textContent = addNewText;
       
       sdList.style.display = 'block';
       sdNewContainer.style.display = 'none';
@@ -40,14 +41,17 @@ document.addEventListener('DOMContentLoaded', () => {
       if (optionsList.length === 0) {
           sdList.innerHTML = '<div style="color: gray; font-size: 14px; text-align: center; padding: 12px;">No existing entries</div>';
       } else {
-          const sortedOptions = [...optionsList].sort((a, b) => a.localeCompare(b));
-          sortedOptions.forEach(opt => {
+          let options = optionsList.map(opt => typeof opt === 'string' ? { label: opt, value: opt } : opt);
+          if (typeof optionsList[0] === 'string') {
+              options.sort((a, b) => a.label.localeCompare(b.label));
+          }
+          options.forEach(opt => {
               const div = document.createElement('div');
               div.className = 'list-item';
-              div.textContent = opt;
+              div.textContent = opt.label;
               div.addEventListener('click', () => {
                   sdDialog.close();
-                  if(currentSelectionCallback) currentSelectionCallback(opt);
+                  if(currentSelectionCallback) currentSelectionCallback(opt.value);
               });
               sdList.appendChild(div);
           });
@@ -154,15 +158,23 @@ document.addEventListener('DOMContentLoaded', () => {
       const mainAddBtn = content.querySelector('.btn-add');
       if (mainAddBtn) {
         mainAddBtn.addEventListener('click', () => {
-          emptyState.style.display = 'none';
-          renderInlineAdd(listContainer, (name) => {
-            data.home.items.push(name);
-            const allOptions = [...data.routines.map(r=>r.name), ...data.exercises.map(e=>e.name)];
-            if (!allOptions.includes(name)) {
-              getExerciseObj(name);
+          const routines = data.routines.map(r => ({ label: `[routine] ${r.name}`, value: { type: 'routine', items: r.items } })).sort((a,b) => a.label.localeCompare(b.label));
+          const exercises = data.exercises.map(e => ({ label: e.name, value: { type: 'exercise', name: e.name } })).sort((a,b) => a.label.localeCompare(b.label));
+          const allOptions = [...routines, ...exercises];
+
+          openSelectionDialog('Add routine or exercise', allOptions, (selection) => {
+            if (typeof selection === 'string') {
+                data.home.items.push(selection);
+                getExerciseObj(selection);
+            } else if (selection.type === 'routine') {
+                selection.items.forEach(exName => {
+                    data.home.items.push(exName);
+                });
+            } else {
+                data.home.items.push(selection.name);
             }
             renderView('home');
-          }, () => renderView('home'));
+          }, 'add new exercise');
         });
       }
 
@@ -214,11 +226,37 @@ document.addEventListener('DOMContentLoaded', () => {
             });
           });
 
-          prog.items.forEach(item => {
-            const div = document.createElement('div');
-            div.className = 'list-item';
-            div.textContent = item;
-            listContainer.appendChild(div);
+          prog.items.forEach(routineName => {
+            let rout = data.routines.find(r => r.name === routineName);
+            if (!rout) {
+                rout = { name: routineName, items: [] };
+                data.routines.push(rout);
+            }
+
+            const rHeader = document.createElement('div');
+            rHeader.className = 'list-header';
+            rHeader.style.marginTop = '8px';
+            rHeader.style.paddingLeft = '24px';
+            rHeader.innerHTML = `<span class="list-header-title">${routineName}</span> <button class="btn-add-sm">+</button>`;
+            listContainer.appendChild(rHeader);
+
+            const rHeaderBtn = rHeader.querySelector('.btn-add-sm');
+            rHeaderBtn.addEventListener('click', () => {
+              openSelectionDialog(`Add exercise to "${routineName}"`, data.exercises.map(e=>e.name), (name) => {
+                rout.items.push(name);
+                if (!data.exercises.find(e=>e.name === name)) {
+                  getExerciseObj(name);
+                }
+                renderView('programs');
+              });
+            });
+
+            rout.items.forEach(exName => {
+              const div = document.createElement('div');
+              div.className = 'list-item';
+              div.textContent = exName;
+              listContainer.appendChild(div);
+            });
           });
         });
         emptyState.style.display = 'none';
