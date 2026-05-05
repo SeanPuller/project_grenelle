@@ -1046,5 +1046,35 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
+  const floatingTimer = document.getElementById('floating-timer');
+  let timerInterval = null;
+  let timerSeconds = 0;
+
+  function updateTimerDisplay() {
+      const m = Math.floor(timerSeconds / 60).toString().padStart(2, '0');
+      const s = (timerSeconds % 60).toString().padStart(2, '0');
+      if (floatingTimer) {
+          floatingTimer.textContent = `${m}:${s}`;
+      }
+  }
+
+  if (floatingTimer) {
+      floatingTimer.addEventListener('click', () => {
+          if (timerInterval) {
+              clearInterval(timerInterval);
+              timerInterval = null;
+              timerSeconds = 0;
+              updateTimerDisplay();
+              floatingTimer.style.opacity = '1';
+          } else {
+              timerInterval = setInterval(() => {
+                  timerSeconds++;
+                  updateTimerDisplay();
+              }, 1000);
+              floatingTimer.style.opacity = '0.9';
+          }
+      });
+  }
+
   renderView('home');
 });

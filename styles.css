@@ -504,3 +504,21 @@ body {
 	cursor: pointer;
 	padding: 8px 16px;
 }
+
+.floating-timer {
+	position: fixed;
+	bottom: 80px;
+	right: 24px;
+	background-color: var(--primary-color);
+	color: var(--text-dark);
+	font-weight: 600;
+	font-size: 16px;
+	padding: 8px 16px;
+	border-radius: 20px;
+	box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+	cursor: pointer;
+	z-index: 1000;
+	user-select: none;
+	font-variant-numeric: tabular-nums;
+	border: 1px solid var(--border-color);
+}
