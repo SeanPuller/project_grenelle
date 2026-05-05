@@ -1,4 +1,4 @@
-const APP_VERSION = '0.30';
+const APP_VERSION = '0.31';
 document.addEventListener('DOMContentLoaded', () => {
   const mainContent = document.getElementById('main-content');
   const navLinks = document.querySelectorAll('.nav-link');
@@ -120,7 +120,7 @@ document.addEventListener('DOMContentLoaded', () => {
           renderView('settings');
       });
   }
-  
+
   const sdDialog = document.getElementById('selection-dialog');
   const sdTitle = document.getElementById('sd-title');
   const sdList = document.getElementById('sd-list');
@@ -129,20 +129,20 @@ document.addEventListener('DOMContentLoaded', () => {
   const sdCancel = document.getElementById('sd-cancel');
   const sdAddNewBtn = document.getElementById('sd-add-new-btn');
   const sdSaveBtn = document.getElementById('sd-save-btn');
-  
+
   let currentSelectionCallback = null;
-  
+
   function openSelectionDialog(title, optionsList, onSelect, addNewText = 'add new') {
       sdTitle.textContent = title;
       currentSelectionCallback = onSelect;
       sdAddNewBtn.textContent = addNewText;
-      
+
       sdList.style.display = 'block';
       sdNewContainer.style.display = 'none';
       sdAddNewBtn.style.display = 'block';
       sdSaveBtn.style.display = 'none';
       sdInput.value = '';
-      
+
       sdInput.setAttribute('autocapitalize', 'none');
       sdList.innerHTML = '';
       if (optionsList.length === 0) {
@@ -163,12 +163,12 @@ document.addEventListener('DOMContentLoaded', () => {
               sdList.appendChild(div);
           });
       }
-      
+
       sdDialog.showModal();
   }
-  
+
   sdCancel.addEventListener('click', () => sdDialog.close());
-  
+
   sdAddNewBtn.addEventListener('click', () => {
       sdList.style.display = 'none';
       sdAddNewBtn.style.display = 'none';
@@ -176,7 +176,7 @@ document.addEventListener('DOMContentLoaded', () => {
       sdSaveBtn.style.display = 'block';
       sdInput.focus();
   });
-  
+
   sdSaveBtn.addEventListener('click', () => {
       const val = sdInput.value.trim();
       if (val) {
@@ -204,11 +204,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function openCalendarDialog(initialDateStr, onSelect) {
       calOnSelect = onSelect;
-      
+
       // Parse initial date (dd-mm-yyyy)
       const parts = initialDateStr.split('-');
       calViewDate = new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, 1);
-      
+
       renderCalendar();
       calDialog.showModal();
   }
@@ -217,9 +217,9 @@ document.addEventListener('DOMContentLoaded', () => {
       calGrid.innerHTML = '';
       const year = calViewDate.getFullYear();
       const month = calViewDate.getMonth();
-      
+
       calMonthLabel.textContent = calViewDate.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' }).toLowerCase();
-      
+
       // Days with logs for highlighting
       const loggedDates = new Set();
       data.exercises.forEach(ex => {
@@ -232,7 +232,7 @@ document.addEventListener('DOMContentLoaded', () => {
       // Start of month
       const firstDay = new Date(year, month, 1).getDay();
       const daysInMonth = new Date(year, month + 1, 0).getDate();
-      
+
       // Adjust for Monday start (JS getDay is 0 for Sun)
       const startOffset = (firstDay === 0) ? 6 : firstDay - 1;
 
@@ -248,18 +248,18 @@ document.addEventListener('DOMContentLoaded', () => {
           const div = document.createElement('div');
           div.className = 'cal-day';
           div.textContent = d;
-          
+
           const dateStr = `${d.toString().padStart(2, '0')}-${(month + 1).toString().padStart(2, '0')}-${year}`;
-          
+
           if (dateStr === todayStr) div.classList.add('today');
           if (dateStr === selectedStr) div.classList.add('selected');
           if (loggedDates.has(dateStr)) div.classList.add('has-logs');
-          
+
           div.addEventListener('click', () => {
               calDialog.close();
               if (calOnSelect) calOnSelect(dateStr);
           });
-          
+
           calGrid.appendChild(div);
       }
   }
@@ -279,35 +279,35 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function renderInlineAdd(listContainer, onSave, onCancel) {
       if (listContainer.querySelector('.inline-add-row')) return;
-      
+
       const row = document.createElement('div');
       row.className = 'list-item inline-add-row';
-      
+
       const input = document.createElement('input');
       input.type = 'text';
       input.className = 'inline-input';
       input.placeholder = 'Name...';
       input.setAttribute('autocapitalize', 'none');
-      
+
       const actions = document.createElement('div');
       actions.className = 'inline-actions';
-      
+
       const saveBtn = document.createElement('span');
       saveBtn.className = 'material-icons-outlined inline-btn inline-save';
       saveBtn.textContent = 'check';
-      
+
       const cancelBtn = document.createElement('span');
       cancelBtn.className = 'material-icons-outlined inline-btn inline-cancel';
       cancelBtn.textContent = 'close';
-      
+
       actions.appendChild(saveBtn);
       actions.appendChild(cancelBtn);
       row.appendChild(input);
       row.appendChild(actions);
-      
+
       listContainer.prepend(row);
       input.focus();
-      
+
       saveBtn.addEventListener('click', () => {
           const val = input.value.trim();
           if (val) {
@@ -316,7 +316,7 @@ document.addEventListener('DOMContentLoaded', () => {
               onCancel();
           }
       });
-      
+
       cancelBtn.addEventListener('click', () => onCancel());
   }
 
@@ -347,9 +347,9 @@ document.addEventListener('DOMContentLoaded', () => {
           child.addEventListener('dragover', (e) => {
               e.preventDefault();
               e.dataTransfer.dropEffect = 'move';
-              
+
               if (child === draggedItem || !draggedItem) return;
-              
+
               const rect = child.getBoundingClientRect();
               const midpoint = rect.top + rect.height / 2;
               if (e.clientY < midpoint) {
@@ -401,16 +401,16 @@ document.addEventListener('DOMContentLoaded', () => {
                   return;
               }
               e.preventDefault(); // Prevent scrolling
-              
+
               const touch = e.touches[0];
               const target = document.elementFromPoint(touch.clientX, touch.clientY);
               if (!target) return;
-              
+
               let overItem = target;
               while (overItem && overItem.parentNode !== container) {
                   overItem = overItem.parentNode;
               }
-              
+
               if (overItem && overItem !== draggedItem && overItem.parentNode === container) {
                   const rect = overItem.getBoundingClientRect();
                   const midpoint = rect.top + rect.height / 2;
@@ -428,10 +428,10 @@ document.addEventListener('DOMContentLoaded', () => {
                   isDragging = false;
                   wasDragging = true;
                   setTimeout(() => wasDragging = false, 50);
-                  
+
                   if (draggedItem) draggedItem.style.opacity = '1';
                   draggedItem = null;
-                  
+
                   const newArray = [];
                   Array.from(container.children).forEach(c => {
                       const idx = parseInt(c.dataset.index, 10);
@@ -478,7 +478,7 @@ document.addEventListener('DOMContentLoaded', () => {
       element.addEventListener('mouseleave', cancel);
       element.addEventListener('touchend', cancel);
       element.addEventListener('touchmove', cancel);
-      
+
       element.addEventListener('click', (e) => {
           if (isLongPress) {
               e.preventDefault();
@@ -492,11 +492,11 @@ document.addEventListener('DOMContentLoaded', () => {
       if (parent.querySelector('.inline-edit-row')) return;
 
       const originalDisplay = elementToReplace.style.display;
-      
+
       // If it's a header title, we might want to hide the action buttons too
       const siblingButtons = parent.querySelector('div[style*="display:flex"]');
       const originalButtonsDisplay = siblingButtons ? siblingButtons.style.display : null;
-      
+
       elementToReplace.style.display = 'none';
       if (siblingButtons) siblingButtons.style.display = 'none';
 
@@ -533,7 +533,7 @@ document.addEventListener('DOMContentLoaded', () => {
           row.remove();
           elementToReplace.style.display = originalDisplay;
           if (siblingButtons) siblingButtons.style.display = originalButtonsDisplay;
-          
+
           if (success) {
               const val = input.value.trim();
               if (val && val !== initialValue) {
@@ -561,11 +561,11 @@ document.addEventListener('DOMContentLoaded', () => {
       if (!newName || oldName === newName) return;
       const ex = data.exercises.find(e => e.name === oldName);
       if (ex) ex.name = newName;
-      
+
       data.routines.forEach(r => {
           r.items = r.items.map(item => item === oldName ? newName : item);
       });
-      
+
       data.programs.forEach(p => {
           p.items = p.items.map(item => item === oldName ? newName : item);
       });
@@ -575,7 +575,7 @@ document.addEventListener('DOMContentLoaded', () => {
               data.home.history[date] = data.home.history[date].map(item => item === oldName ? newName : item);
           });
       }
-      
+
       if (currentExercise === oldName) currentExercise = newName;
       saveData();
   }
@@ -584,7 +584,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (!newName || oldName === newName) return;
       const rout = data.routines.find(r => r.name === oldName);
       if (rout) rout.name = newName;
-      
+
       data.programs.forEach(p => {
           p.items = p.items.map(item => item === oldName ? newName : item);
       });
@@ -641,7 +641,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const listContainer = content.getElementById('home-list');
       const emptyState = content.getElementById('home-empty');
       const dateDisplay = content.getElementById('home-date-display');
-      
+
       const todayStr = getCurrentDate();
       const logsDate = homeLogsViewDate || todayStr;
       const isViewingToday = logsDate === todayStr;
@@ -658,12 +658,12 @@ document.addEventListener('DOMContentLoaded', () => {
               });
           });
       }
-      
+
       const tagsSpan = content.querySelector('.add-tags');
       if (tagsSpan) {
           if (!data.home.tags) data.home.tags = {};
           const currentTags = data.home.tags[logsDate] || [];
-          
+
           tagsSpan.innerHTML = '';
           if (currentTags.length > 0) {
               currentTags.forEach(t => {
@@ -681,7 +681,7 @@ document.addEventListener('DOMContentLoaded', () => {
                   tagsSpan.appendChild(s);
               });
           }
-          
+
           const addS = document.createElement('span');
           addS.textContent = '<add tags>';
           addS.style.cursor = 'pointer';
@@ -703,7 +703,7 @@ document.addEventListener('DOMContentLoaded', () => {
           });
           tagsSpan.appendChild(addS);
       }
-      
+
       const mainAddBtn = content.querySelector('.btn-add');
       if (mainAddBtn) {
         mainAddBtn.addEventListener('click', () => {
@@ -734,12 +734,12 @@ document.addEventListener('DOMContentLoaded', () => {
           div.className = 'list-item';
           div.style.display = 'flex';
           div.style.alignItems = 'center';
-          
+
           const textSpan = document.createElement('span');
           textSpan.style.flex = '1';
           textSpan.textContent = item;
           div.appendChild(textSpan);
-          
+
           const rmBtn = document.createElement('button');
           rmBtn.className = 'btn-remove-sm material-icons-outlined';
           rmBtn.textContent = 'close';
@@ -856,7 +856,7 @@ document.addEventListener('DOMContentLoaded', () => {
     } else if (viewName === 'programs') {
       const listContainer = content.getElementById('programs-list');
       const emptyState = content.getElementById('programs-empty');
-      
+
       const mainAddBtn = content.querySelector('.main-add-row .btn-add');
       if (mainAddBtn) {
         mainAddBtn.addEventListener('click', () => {
@@ -872,7 +872,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const sortedProgs = [...data.programs].sort((a,b) => a.name.localeCompare(b.name));
         sortedProgs.forEach(prog => {
           const progContainer = document.createElement('div');
-          
+
           const header = document.createElement('div');
           header.className = 'list-header';
           header.innerHTML = `<span class="list-header-title" style="cursor: pointer;">${prog.name}</span> <div style="display:flex"><button class="btn-add-sm">+</button><button class="btn-remove-sm material-icons-outlined">close</button></div>`;
@@ -909,7 +909,7 @@ document.addEventListener('DOMContentLoaded', () => {
           prog.items.forEach((routineName, index) => {
             const rWrapper = document.createElement('div');
             rWrapper.dataset.index = index;
-            
+
             let rout = data.routines.find(r => r.name === routineName);
             if (!rout) {
                 rout = { name: routineName, items: [] };
@@ -948,13 +948,13 @@ document.addEventListener('DOMContentLoaded', () => {
               div.className = 'list-item';
               div.style.display = 'flex';
               div.style.alignItems = 'center';
-              
+
               const textSpan = document.createElement('span');
               textSpan.style.flex = '1';
               textSpan.style.textAlign = 'right';
               textSpan.textContent = exName;
               div.appendChild(textSpan);
-              
+
               const rmBtn = document.createElement('button');
               rmBtn.className = 'btn-remove-sm material-icons-outlined';
               rmBtn.textContent = 'close';
@@ -973,15 +973,15 @@ document.addEventListener('DOMContentLoaded', () => {
               });
               rWrapper.appendChild(div);
             });
-            
+
             routinesContainer.appendChild(rWrapper);
           });
-          
+
           setupReorderable(routinesContainer, prog.items, (newArr) => {
               prog.items = newArr;
               renderView('programs');
           });
-          
+
           progContainer.appendChild(routinesContainer);
           listContainer.appendChild(progContainer);
         });
@@ -992,7 +992,7 @@ document.addEventListener('DOMContentLoaded', () => {
     } else if (viewName === 'routines') {
       const listContainer = content.getElementById('routines-list');
       const emptyState = content.getElementById('routines-empty');
-      
+
       const mainAddBtn = content.querySelector('.main-add-row .btn-add');
       if (mainAddBtn) {
         mainAddBtn.addEventListener('click', () => {
@@ -1010,7 +1010,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const sortedRouts = [...data.routines].sort((a,b) => a.name.localeCompare(b.name));
         sortedRouts.forEach(rout => {
           const routContainer = document.createElement('div');
-          
+
           const header = document.createElement('div');
           header.className = 'list-header';
           header.innerHTML = `<span class="list-header-title" style="cursor: pointer;">${rout.name}</span> <div style="display:flex"><button class="btn-add-sm">+</button><button class="btn-remove-sm material-icons-outlined">close</button></div>`;
@@ -1052,13 +1052,13 @@ document.addEventListener('DOMContentLoaded', () => {
             div.className = 'list-item';
             div.style.display = 'flex';
             div.style.alignItems = 'center';
-            
+
             const textSpan = document.createElement('span');
             textSpan.style.flex = '1';
             textSpan.style.textAlign = 'right';
             textSpan.textContent = item;
             div.appendChild(textSpan);
-            
+
             const rmBtn = document.createElement('button');
             rmBtn.className = 'btn-remove-sm material-icons-outlined';
             rmBtn.textContent = 'close';
@@ -1078,12 +1078,12 @@ document.addEventListener('DOMContentLoaded', () => {
             });
             itemsContainer.appendChild(div);
           });
-          
+
           setupReorderable(itemsContainer, rout.items, (newArr) => {
              rout.items = newArr;
              renderView('routines');
           });
-          
+
           routContainer.appendChild(itemsContainer);
           listContainer.appendChild(routContainer);
         });
@@ -1094,7 +1094,7 @@ document.addEventListener('DOMContentLoaded', () => {
     } else if (viewName === 'exercises') {
       const listContainer = content.getElementById('exercises-list');
       const emptyState = content.getElementById('exercises-empty');
-      
+
       const mainAddBtn = content.querySelector('.main-add-row .btn-add');
       if (mainAddBtn) {
         mainAddBtn.addEventListener('click', () => {
@@ -1115,7 +1115,7 @@ document.addEventListener('DOMContentLoaded', () => {
           div.className = 'list-item';
           div.style.display = 'flex';
           div.style.alignItems = 'center';
-          
+
           const textSpan = document.createElement('span');
           textSpan.style.flex = '1';
           textSpan.textContent = item.name;
@@ -1128,7 +1128,7 @@ document.addEventListener('DOMContentLoaded', () => {
                   renderView('exercises');
               });
           });
-          
+
           const rmBtn = document.createElement('button');
           rmBtn.className = 'btn-remove-sm material-icons-outlined';
           rmBtn.textContent = 'close';
@@ -1157,10 +1157,10 @@ document.addEventListener('DOMContentLoaded', () => {
     } else if (viewName === 'exercise-detail') {
       const titleSpan = content.querySelector('.ex-name');
       if (titleSpan) titleSpan.textContent = currentExercise;
-      
+
       const backBtn = content.querySelector('.back-btn');
       backBtn.addEventListener('click', () => renderView(exerciseReturnView));
-      
+
       const editIcon = content.querySelector('.edit-icon');
       if (editIcon) {
           editIcon.addEventListener('click', () => renderView('exercise-edit'));
@@ -1172,13 +1172,13 @@ document.addEventListener('DOMContentLoaded', () => {
       const tabLinks = content.querySelectorAll('.d-nav-link');
       const tabLogs = content.getElementById('tab-logs');
       const tabNotes = content.getElementById('tab-notes');
-      
+
       tabLinks.forEach(link => {
           link.addEventListener('click', (e) => {
               e.preventDefault();
               tabLinks.forEach(l => l.classList.remove('active'));
               link.classList.add('active');
-              
+
               if (link.dataset.tab === 'logs') {
                   tabLogs.style.display = 'block';
                   tabNotes.style.display = 'none';
@@ -1196,24 +1196,24 @@ document.addEventListener('DOMContentLoaded', () => {
       const notesArea = content.querySelector('.notes-textarea');
       if (notesArea) {
           notesArea.value = exObj.notes || '';
-          
+
           const autoResize = () => {
               notesArea.style.height = '24px';
               notesArea.style.height = Math.max(24, notesArea.scrollHeight) + 'px';
           };
-          
+
           notesArea.addEventListener('input', (e) => {
               exObj.notes = e.target.value;
               autoResize();
               saveData(); // auto-save on type
           });
-          
+
           setTimeout(autoResize, 0);
       }
 
       const logSection = content.querySelector('.log-input-section');
       logSection.innerHTML = '';
-      
+
       if (exObj.types.length > 0) {
           const grid = document.createElement('div');
           grid.style.display = 'grid';
@@ -1251,28 +1251,28 @@ document.addEventListener('DOMContentLoaded', () => {
                   sLabelEl = sLabel;
                   grid.appendChild(sLabel);
               }
-              
+
               const wrapper = document.createElement('div');
               wrapper.style.display = 'flex';
               wrapper.style.alignItems = 'center';
               wrapper.style.gap = '8px';
               wrapper.style.gridColumn = col.toString();
               wrapper.style.gridRow = row.toString();
-              
+
               const inp = document.createElement('input');
               inp.type = 'number';
               inp.className = 'val-input dyn-val';
               inp.dataset.type = t;
-              
+
               const unit = document.createElement('span');
               unit.className = 'unit';
               unit.textContent = t;
-              
+
               wrapper.appendChild(inp);
               wrapper.appendChild(unit);
               grid.appendChild(wrapper);
           });
-          
+
           const numRows = Math.ceil(exObj.types.length / 2);
           const tagSpan = document.createElement('span');
           tagSpan.className = 'add-tag-inline';
@@ -1282,9 +1282,9 @@ document.addEventListener('DOMContentLoaded', () => {
           tagSpan.style.textAlign = 'right';
           tagSpan.style.cursor = 'pointer';
           grid.appendChild(tagSpan);
-          
+
           let currentTags = [];
-          
+
           const renderTagSpan = () => {
               tagSpan.innerHTML = '';
               if (currentTags.length > 0) {
@@ -1322,9 +1322,9 @@ document.addEventListener('DOMContentLoaded', () => {
               tagSpan.appendChild(addS);
           };
           renderTagSpan();
-          
+
           logSection.appendChild(grid);
-          
+
           const addBtn = document.createElement('button');
           addBtn.className = 'btn-large-add';
           addBtn.textContent = '+';
@@ -1340,17 +1340,17 @@ document.addEventListener('DOMContentLoaded', () => {
              if (hasData) {
                  const today = getCurrentDate();
                  const logEntry = { date: today, ts: Date.now(), data: newLog, type: currentSetType };
-                 
+
                  let finalTags = new Set();
                  if (data.home && data.home.tags && data.home.tags[today]) {
                      data.home.tags[today].forEach(t => finalTags.add(t));
                  }
                  currentTags.forEach(t => finalTags.add(t));
-                 
+
                  if (finalTags.size > 0) {
                      logEntry.tags = Array.from(finalTags);
                  }
-                 
+
                  exObj.logs.push(logEntry);
                  renderView('exercise-detail');
              }
@@ -1368,7 +1368,7 @@ document.addEventListener('DOMContentLoaded', () => {
               logIndexMap[log.date + '_' + grouped[log.date].length] = globalIdx;
               grouped[log.date].push(log);
           });
-          
+
           const parseDateKey = (d) => {
               const [dd, mm, yyyy] = d.split('-');
               return new Date(`${yyyy}-${mm}-${dd}`).getTime();
@@ -1377,7 +1377,7 @@ document.addEventListener('DOMContentLoaded', () => {
           sortedDates.forEach(dateStr => {
               const dayDiv = document.createElement('div');
               dayDiv.className = 'history-day';
-              
+
               // Compute common tags for this day
               const daySets = grouped[dateStr];
               let commonTags = [];
@@ -1420,13 +1420,13 @@ document.addEventListener('DOMContentLoaded', () => {
                   numSpan.className = 'set-num';
                   numSpan.textContent = setLabel;
                   setRow.appendChild(numSpan);
-                  
+
                   const metricsGrid = document.createElement('div');
                   metricsGrid.style.display = 'grid';
                   metricsGrid.style.gridTemplateColumns = '100px 100px 1fr';
                   metricsGrid.style.gap = '4px 12px';
                   metricsGrid.style.flex = '1';
-                  
+
                   exObj.types.forEach(t => {
                       const mSpan = document.createElement('span');
                       if (set.data[t]) {
@@ -1434,7 +1434,7 @@ document.addEventListener('DOMContentLoaded', () => {
                       }
                       metricsGrid.appendChild(mSpan);
                   });
-                  
+
                   // For legacy logs with removed types
                   Object.keys(set.data).forEach(k => {
                       if (!exObj.types.includes(k)) {
@@ -1443,7 +1443,7 @@ document.addEventListener('DOMContentLoaded', () => {
                           metricsGrid.appendChild(mSpan);
                       }
                   });
-                  
+
                   // Add 1RM if only kg and reps (only for regular sets)
                   const dataKeys = Object.keys(set.data);
                   if (setType === 's' && dataKeys.length === 2 && dataKeys.includes('kg') && dataKeys.includes('reps')) {
@@ -1463,7 +1463,7 @@ document.addEventListener('DOMContentLoaded', () => {
                   // Show only tags unique to this set (not the common day tags)
                   const allSetTags = getSetTags(set);
                   const uniqueTags = allSetTags.filter(t => !commonTags.includes(t));
-                  
+
                   if (uniqueTags.length > 0) {
                       const tagDisplay = document.createElement('span');
                       tagDisplay.className = 'set-tag';
@@ -1636,7 +1636,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                   dayDiv.appendChild(setRow);
               });
-              
+
               historyList.appendChild(dayDiv);
           });
       }
@@ -1647,7 +1647,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
       const backBtn = content.querySelector('.back-btn');
       backBtn.addEventListener('click', () => renderView('exercise-detail'));
-      
+
       const exObj = getExerciseObj(currentExercise);
 
       const checkboxes = content.querySelectorAll('.custom-checkbox input');
@@ -1707,7 +1707,7 @@ document.addEventListener('DOMContentLoaded', () => {
               updateToggle();
           });
       }
-      
+
       const debugInput = content.querySelector('#debug-date-input');
       if (debugInput) {
           debugInput.value = data.settings?.debugDate || '';
@@ -1724,7 +1724,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const colorTextLight = content.querySelector('#color-text-light');
       const colorTextDisabled = content.querySelector('#color-text-disabled');
       const colorBorder = content.querySelector('#color-border');
-      
+
       if (colorPrimary && colorBg && colorTextDark) {
           const currentColors = (data.settings && data.settings.colors) ? data.settings.colors : DEFAULT_COLORS;
           colorPrimary.value = currentColors.primary || DEFAULT_COLORS.primary;
@@ -1733,7 +1733,7 @@ document.addEventListener('DOMContentLoaded', () => {
           colorTextLight.value = currentColors.textLight || DEFAULT_COLORS.textLight;
           colorTextDisabled.value = currentColors.textDisabled || DEFAULT_COLORS.textDisabled;
           colorBorder.value = currentColors.border || DEFAULT_COLORS.border;
-          
+
           const updateColor = () => {
               if (!data.settings) data.settings = {};
               if (!data.settings.colors) data.settings.colors = {};
@@ -1746,7 +1746,7 @@ document.addEventListener('DOMContentLoaded', () => {
               applyColors();
               saveData();
           };
-          
+
           colorPrimary.addEventListener('input', updateColor);
           colorBg.addEventListener('input', updateColor);
           colorTextDark.addEventListener('input', updateColor);
@@ -1754,7 +1754,7 @@ document.addEventListener('DOMContentLoaded', () => {
           colorTextDisabled.addEventListener('input', updateColor);
           colorBorder.addEventListener('input', updateColor);
       }
-      
+
       const resetBtn = content.querySelector('#btn-reset-colors');
       if (resetBtn) {
           resetBtn.addEventListener('click', () => {
@@ -1768,13 +1768,20 @@ document.addEventListener('DOMContentLoaded', () => {
       const exportBtn = content.querySelector('#btn-export-data');
       if (exportBtn) {
           exportBtn.addEventListener('click', () => {
-              const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(data, null, 2));
-              const downloadAnchorNode = document.createElement('a');
-              downloadAnchorNode.setAttribute("href", dataStr);
-              downloadAnchorNode.setAttribute("download", `grenelle_fitness_data_${getCurrentDate()}.json`);
-              document.body.appendChild(downloadAnchorNode);
-              downloadAnchorNode.click();
-              downloadAnchorNode.remove();
+              const fileName = `grenelle_fitness_data_${getCurrentDate()}.json`;
+              const jsonData = JSON.stringify(data, null, 2);
+
+              if (window.AndroidInterface && window.AndroidInterface.export) {
+                  window.AndroidInterface.export(jsonData, fileName);
+              } else {
+                  const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(jsonData);
+                  const downloadAnchorNode = document.createElement('a');
+                  downloadAnchorNode.setAttribute("href", dataStr);
+                  downloadAnchorNode.setAttribute("download", fileName);
+                  document.body.appendChild(downloadAnchorNode);
+                  downloadAnchorNode.click();
+                  downloadAnchorNode.remove();
+              }
           });
       }
 
@@ -1807,7 +1814,7 @@ document.addEventListener('DOMContentLoaded', () => {
               reader.readAsText(file);
           });
       }
-      
+
       const clearBtn = content.querySelector('#btn-clear-data');
       if (clearBtn) {
           clearBtn.addEventListener('click', () => {
@@ -1886,15 +1893,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
       const xDiff = touchStartX - touchEndX;
       const yDiff = touchStartY - touchEndY;
-      
+
       if (Math.abs(xDiff) < Math.abs(yDiff)) {
           return; // Mostly vertical swipe, likely scrolling
       }
-      
+
       if (Math.abs(xDiff) < 50) {
           return; // Swipe too short
       }
-      
+
       const currentIndex = mainViews.indexOf(currentViewName);
       if (currentIndex === -1) return; // Only swipe on main views
 
