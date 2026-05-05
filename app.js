@@ -135,6 +135,7 @@ document.addEventListener('DOMContentLoaded', () => {
       sdSaveBtn.style.display = 'none';
       sdInput.value = '';
       
+      sdInput.setAttribute('autocapitalize', 'none');
       sdList.innerHTML = '';
       if (optionsList.length === 0) {
           sdList.innerHTML = '<div style="color: gray; font-size: 14px; text-align: center; padding: 12px;">No existing entries</div>';
@@ -186,6 +187,7 @@ document.addEventListener('DOMContentLoaded', () => {
       input.type = 'text';
       input.className = 'inline-input';
       input.placeholder = 'Name...';
+      input.setAttribute('autocapitalize', 'none');
       
       const actions = document.createElement('div');
       actions.className = 'inline-actions';

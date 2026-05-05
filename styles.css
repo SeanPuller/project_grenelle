@@ -15,6 +15,12 @@
 	-webkit-tap-highlight-color: transparent;
 }
 
+input[type="text"],
+input[type="search"],
+textarea {
+	text-transform: lowercase;
+}
+
 body {
 	font-family: 'Inter', -apple-system, sans-serif;
 	background-color: var(--bg-color);
