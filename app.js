@@ -10,8 +10,7 @@ document.addEventListener('DOMContentLoaded', () => {
     version: 1,
     settings: { debugDate: '' },
     home: {
-      date: new Date().toLocaleDateString('en-GB').replace(/\//g, '-'),
-      items: []
+      history: {}
     },
     programs: [],
     routines: [],
@@ -41,6 +40,22 @@ document.addEventListener('DOMContentLoaded', () => {
           return data.settings.debugDate;
       }
       return new Date().toLocaleDateString('en-GB').replace(/\//g, '-');
+  }
+
+  function getHomeItemsForDate(date) {
+      if (!data.home.history) {
+          data.home.history = {};
+          if (data.home.items) {
+              const oldDate = data.home.date || new Date().toLocaleDateString('en-GB').replace(/\//g, '-');
+              data.home.history[oldDate] = data.home.items;
+              delete data.home.items;
+              delete data.home.date;
+          }
+      }
+      if (!data.home.history[date]) {
+          data.home.history[date] = [];
+      }
+      return data.home.history[date];
   }
 
   function saveData() {
@@ -323,8 +338,12 @@ document.addEventListener('DOMContentLoaded', () => {
       const listContainer = content.getElementById('home-list');
       const emptyState = content.getElementById('home-empty');
       const dateDisplay = content.getElementById('home-date-display');
+      
+      const todayStr = getCurrentDate();
+      const itemsToday = getHomeItemsForDate(todayStr);
+
       if (dateDisplay) {
-          dateDisplay.textContent = getCurrentDate();
+          dateDisplay.textContent = todayStr;
       }
       
       const mainAddBtn = content.querySelector('.btn-add');
@@ -336,23 +355,23 @@ document.addEventListener('DOMContentLoaded', () => {
 
           openSelectionDialog('Add routine or exercise', allOptions, (selection) => {
             if (typeof selection === 'string') {
-                data.home.items.push(selection);
+                itemsToday.push(selection);
                 getExerciseObj(selection);
             } else if (selection.type === 'routine') {
                 selection.items.forEach(exName => {
-                    data.home.items.push(exName);
+                    itemsToday.push(exName);
                 });
             } else {
-                data.home.items.push(selection.name);
+                itemsToday.push(selection.name);
             }
             renderView('home');
           }, 'add new exercise');
         });
       }
 
-      if (data.home.items.length > 0) {
+      if (itemsToday.length > 0) {
         const homeContainer = document.createElement('div');
-        data.home.items.forEach((item, index) => {
+        itemsToday.forEach((item, index) => {
           const div = document.createElement('div');
           div.className = 'list-item';
           div.textContent = item;
@@ -363,8 +382,8 @@ document.addEventListener('DOMContentLoaded', () => {
           });
           homeContainer.appendChild(div);
         });
-        setupReorderable(homeContainer, data.home.items, (newArr) => {
-           data.home.items = newArr;
+        setupReorderable(homeContainer, itemsToday, (newArr) => {
+           data.home.history[todayStr] = newArr;
            renderView('home');
         });
         listContainer.appendChild(homeContainer);
