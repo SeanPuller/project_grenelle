@@ -374,7 +374,24 @@ document.addEventListener('DOMContentLoaded', () => {
         itemsToday.forEach((item, index) => {
           const div = document.createElement('div');
           div.className = 'list-item';
-          div.textContent = item;
+          div.style.display = 'flex';
+          div.style.alignItems = 'center';
+          
+          const textSpan = document.createElement('span');
+          textSpan.style.flex = '1';
+          textSpan.textContent = item;
+          div.appendChild(textSpan);
+          
+          const rmBtn = document.createElement('button');
+          rmBtn.className = 'btn-remove-sm material-icons-outlined';
+          rmBtn.textContent = 'close';
+          rmBtn.addEventListener('click', (e) => {
+              e.stopPropagation();
+              itemsToday.splice(index, 1);
+              renderView('home');
+          });
+          div.appendChild(rmBtn);
+
           div.dataset.index = index;
           div.addEventListener('click', () => {
              currentExercise = item;
@@ -413,8 +430,16 @@ document.addEventListener('DOMContentLoaded', () => {
           
           const header = document.createElement('div');
           header.className = 'list-header';
-          header.innerHTML = `<span class="list-header-title">${prog.name}</span> <button class="btn-add-sm">+</button>`;
+          header.innerHTML = `<span class="list-header-title">${prog.name}</span> <div style="display:flex"><button class="btn-add-sm">+</button><button class="btn-remove-sm material-icons-outlined">close</button></div>`;
           progContainer.appendChild(header);
+
+          const headerRmBtn = header.querySelector('.btn-remove-sm');
+          headerRmBtn.addEventListener('click', () => {
+              if (confirm(`Delete program "${prog.name}"?`)) {
+                  data.programs = data.programs.filter(p => p.name !== prog.name);
+                  renderView('programs');
+              }
+          });
 
           const headerBtn = header.querySelector('.btn-add-sm');
           headerBtn.addEventListener('click', () => {
@@ -442,8 +467,17 @@ document.addEventListener('DOMContentLoaded', () => {
             rHeader.className = 'list-header';
             rHeader.style.marginTop = '8px';
             rHeader.style.paddingLeft = '24px';
-            rHeader.innerHTML = `<span class="list-header-title">${routineName}</span> <button class="btn-add-sm">+</button>`;
+            rHeader.innerHTML = `<span class="list-header-title">${routineName}</span> <div style="display:flex"><button class="btn-add-sm">+</button><button class="btn-remove-sm material-icons-outlined">close</button></div>`;
             rWrapper.appendChild(rHeader);
+
+            const rRmBtn = rHeader.querySelector('.btn-remove-sm');
+            rRmBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                if (confirm(`Remove routine "${routineName}" from program?`)) {
+                    prog.items.splice(index, 1);
+                    renderView('programs');
+                }
+            });
 
             const rHeaderBtn = rHeader.querySelector('.btn-add-sm');
             rHeaderBtn.addEventListener('click', () => {
@@ -456,10 +490,30 @@ document.addEventListener('DOMContentLoaded', () => {
               });
             });
 
-            rout.items.forEach(exName => {
+            rout.items.forEach((exName, exIndex) => {
               const div = document.createElement('div');
               div.className = 'list-item';
-              div.textContent = exName;
+              div.style.display = 'flex';
+              div.style.alignItems = 'center';
+              
+              const textSpan = document.createElement('span');
+              textSpan.style.flex = '1';
+              textSpan.style.textAlign = 'right';
+              textSpan.textContent = exName;
+              div.appendChild(textSpan);
+              
+              const rmBtn = document.createElement('button');
+              rmBtn.className = 'btn-remove-sm material-icons-outlined';
+              rmBtn.textContent = 'close';
+              rmBtn.addEventListener('click', (e) => {
+                  e.stopPropagation();
+                  if (confirm(`Remove exercise "${exName}" from routine?`)) {
+                      rout.items.splice(exIndex, 1);
+                      renderView('programs');
+                  }
+              });
+              div.appendChild(rmBtn);
+
               div.addEventListener('click', () => {
                   currentExercise = exName;
                   renderView('exercise-detail');
@@ -506,8 +560,19 @@ document.addEventListener('DOMContentLoaded', () => {
           
           const header = document.createElement('div');
           header.className = 'list-header';
-          header.innerHTML = `<span class="list-header-title">${rout.name}</span> <button class="btn-add-sm">+</button>`;
+          header.innerHTML = `<span class="list-header-title">${rout.name}</span> <div style="display:flex"><button class="btn-add-sm">+</button><button class="btn-remove-sm material-icons-outlined">close</button></div>`;
           routContainer.appendChild(header);
+
+          const headerRmBtn = header.querySelector('.btn-remove-sm');
+          headerRmBtn.addEventListener('click', () => {
+              if (confirm(`Delete routine "${rout.name}" completely?`)) {
+                  data.routines = data.routines.filter(r => r.name !== rout.name);
+                  data.programs.forEach(p => {
+                      p.items = p.items.filter(rName => rName !== rout.name);
+                  });
+                  renderView('routines');
+              }
+          });
 
           const headerBtn = header.querySelector('.btn-add-sm');
           headerBtn.addEventListener('click', () => {
@@ -524,7 +589,27 @@ document.addEventListener('DOMContentLoaded', () => {
           rout.items.forEach((item, index) => {
             const div = document.createElement('div');
             div.className = 'list-item';
-            div.textContent = item;
+            div.style.display = 'flex';
+            div.style.alignItems = 'center';
+            
+            const textSpan = document.createElement('span');
+            textSpan.style.flex = '1';
+            textSpan.style.textAlign = 'right';
+            textSpan.textContent = item;
+            div.appendChild(textSpan);
+            
+            const rmBtn = document.createElement('button');
+            rmBtn.className = 'btn-remove-sm material-icons-outlined';
+            rmBtn.textContent = 'close';
+            rmBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                if (confirm(`Remove exercise "${item}" from routine?`)) {
+                    rout.items.splice(index, 1);
+                    renderView('routines');
+                }
+            });
+            div.appendChild(rmBtn);
+
             div.dataset.index = index;
             div.addEventListener('click', () => {
                 currentExercise = item;
@@ -567,7 +652,29 @@ document.addEventListener('DOMContentLoaded', () => {
         sorted.forEach(item => {
           const div = document.createElement('div');
           div.className = 'list-item';
-          div.textContent = item.name;
+          div.style.display = 'flex';
+          div.style.alignItems = 'center';
+          
+          const textSpan = document.createElement('span');
+          textSpan.style.flex = '1';
+          textSpan.textContent = item.name;
+          div.appendChild(textSpan);
+          
+          const rmBtn = document.createElement('button');
+          rmBtn.className = 'btn-remove-sm material-icons-outlined';
+          rmBtn.textContent = 'close';
+          rmBtn.addEventListener('click', (e) => {
+              e.stopPropagation();
+              if (confirm(`Delete exercise "${item.name}" completely?`)) {
+                  data.exercises = data.exercises.filter(ex => ex.name !== item.name);
+                  data.routines.forEach(r => {
+                      r.items = r.items.filter(exName => exName !== item.name);
+                  });
+                  renderView('exercises');
+              }
+          });
+          div.appendChild(rmBtn);
+
           div.addEventListener('click', () => {
               currentExercise = item.name;
               renderView('exercise-detail');
