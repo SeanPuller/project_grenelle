@@ -52,6 +52,9 @@
 			<div class="empty-state-row" id="home-empty">
 				add routine/exercise to begin
 			</div>
+
+			<!-- Today's logs summary -->
+			<div id="home-day-logs"></div>
 		</div>
 	</template>
 
@@ -224,7 +227,13 @@
 					reset colors
 				</div>
 
-				<div class="settings-subheading">testing</div>
+				<div class="settings-subheading">general</div>
+				<div class="list-item" style="justify-content: space-between; cursor: default;">
+					<span>Show today's logs on home</span>
+					<span class="material-icons-outlined" id="toggle-home-logs" style="cursor: pointer; font-size: 22px;"></span>
+				</div>
+
+			<div class="settings-subheading">testing</div>
 				<div class="list-item" style="justify-content: space-between; cursor: default;">
 					<span>Debug Date (DD-MM-YYYY)</span>
 					<input type="text" id="debug-date-input" placeholder="e.g. 18-10-2026" autocapitalize="none" style="text-align: right; border: none; border-bottom: 1px solid var(--border-color); color: var(--text-dark); outline: none; background: transparent; width: 100px;">

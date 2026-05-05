@@ -1,4 +1,4 @@
-const APP_VERSION = '0.26';
+const APP_VERSION = '0.27';
 document.addEventListener('DOMContentLoaded', () => {
   const mainContent = document.getElementById('main-content');
   const navLinks = document.querySelectorAll('.nav-link');
@@ -18,7 +18,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const DEFAULT_DATA = {
     version: 1,
-    settings: { debugDate: '', colors: { ...DEFAULT_COLORS } },
+    settings: { debugDate: '', showHomeLogs: true, colors: { ...DEFAULT_COLORS } },
     home: {
       history: {}
     },
@@ -515,6 +515,93 @@ document.addEventListener('DOMContentLoaded', () => {
       } else {
         emptyState.style.display = 'block';
       }
+
+      // Render today's logs summary if setting is on
+      const showLogs = data.settings?.showHomeLogs !== false;
+      const dayLogsContainer = content.getElementById('home-day-logs');
+      if (dayLogsContainer && showLogs) {
+          // Collect all logs for today across all exercises
+          const todayLogs = [];
+          data.exercises.forEach(ex => {
+              if (ex.logs) {
+                  ex.logs.forEach(log => {
+                      if (log.date === todayStr) {
+                          todayLogs.push({ ex, log });
+                      }
+                  });
+              }
+          });
+
+          if (todayLogs.length > 0) {
+              // Group by exercise, tracking earliest timestamp for sort
+              const byExercise = {};
+              todayLogs.forEach(({ ex, log }) => {
+                  if (!byExercise[ex.name]) byExercise[ex.name] = { ex, logs: [], firstTs: Infinity };
+                  byExercise[ex.name].logs.push(log);
+                  const ts = log.ts || 0;
+                  if (ts < byExercise[ex.name].firstTs) byExercise[ex.name].firstTs = ts;
+              });
+
+              // Sort exercises by time of first set logged today
+              const sortedExercises = Object.entries(byExercise)
+                  .sort(([, a], [, b]) => a.firstTs - b.firstTs);
+
+              const logsSection = document.createElement('div');
+              logsSection.style.marginTop = '16px';
+
+              const logsHeading = document.createElement('div');
+              logsHeading.className = 'settings-subheading';
+              logsHeading.style.marginTop = '0';
+              logsHeading.textContent = 'today\'s sets';
+              logsSection.appendChild(logsHeading);
+
+              sortedExercises.forEach(([exName, { ex, logs }]) => {
+                  const exHeader = document.createElement('div');
+                  exHeader.className = 'day-header';
+                  exHeader.style.cursor = 'pointer';
+                  exHeader.innerHTML = `<span>${exName}</span>`;
+                  exHeader.addEventListener('click', () => {
+                      currentExercise = exName;
+                      renderView('exercise-detail');
+                  });
+                  logsSection.appendChild(exHeader);
+
+                  let workSetCount = 0;
+                  logs.forEach(set => {
+                      const setType = set.type || 's';
+                      let setLabel;
+                      if (setType === 'w') setLabel = 'W';
+                      else if (setType === 'p') setLabel = 'P';
+                      else { workSetCount++; setLabel = workSetCount.toString(); }
+
+                      const setRow = document.createElement('div');
+                      setRow.className = 'set-row';
+
+                      const numSpan = document.createElement('span');
+                      numSpan.className = 'set-num';
+                      numSpan.textContent = setLabel;
+                      setRow.appendChild(numSpan);
+
+                      const metricsWrap = document.createElement('div');
+                      metricsWrap.style.display = 'flex';
+                      metricsWrap.style.gap = '12px';
+                      metricsWrap.style.flex = '1';
+                      metricsWrap.style.flexWrap = 'wrap';
+
+                      Object.entries(set.data).forEach(([k, v]) => {
+                          const s = document.createElement('span');
+                          s.textContent = `${v} ${k}`;
+                          metricsWrap.appendChild(s);
+                      });
+
+                      setRow.appendChild(metricsWrap);
+                      logsSection.appendChild(setRow);
+                  });
+              });
+
+              dayLogsContainer.appendChild(logsSection);
+          }
+      }
     } else if (viewName === 'programs') {
       const listContainer = content.getElementById('programs-list');
       const emptyState = content.getElementById('programs-empty');
@@ -977,7 +1064,7 @@ document.addEventListener('DOMContentLoaded', () => {
              });
              if (hasData) {
                  const today = getCurrentDate();
-                 const logEntry = { date: today, data: newLog, type: currentSetType };
+                 const logEntry = { date: today, ts: Date.now(), data: newLog, type: currentSetType };
                  
                  let finalTags = new Set();
                  if (data.home && data.home.tags && data.home.tags[today]) {
@@ -1329,6 +1416,21 @@ document.addEventListener('DOMContentLoaded', () => {
       const versionEl = content.querySelector('#app-version');
       if (versionEl) {
           versionEl.textContent = `v${APP_VERSION}`;
+      }
+
+      const homeLogsToggle = content.querySelector('#toggle-home-logs');
+      if (homeLogsToggle) {
+          const isOn = () => data.settings?.showHomeLogs !== false;
+          const updateToggle = () => {
+              homeLogsToggle.textContent = isOn() ? 'check_box' : 'check_box_outline_blank';
+          };
+          updateToggle();
+          homeLogsToggle.addEventListener('click', () => {
+              if (!data.settings) data.settings = {};
+              data.settings.showHomeLogs = !isOn();
+              saveData();
+              updateToggle();
+          });
       }
       
       const debugInput = content.querySelector('#debug-date-input');
