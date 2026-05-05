@@ -3,6 +3,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const navLinks = document.querySelectorAll('.nav-link');
 
   let currentExercise = '';
+  let currentViewName = 'home';
+  let exerciseReturnView = 'exercises';
 
   // Mock data mimicking the provided designs
   const data = {
@@ -120,6 +122,130 @@ document.addEventListener('DOMContentLoaded', () => {
       cancelBtn.addEventListener('click', () => onCancel());
   }
 
+  function setupReorderable(container, array, onReorder) {
+      let draggedItem = null;
+
+      Array.from(container.children).forEach(child => {
+          child.draggable = true;
+
+          // --- Desktop Drag & Drop ---
+          child.addEventListener('dragstart', (e) => {
+              draggedItem = child;
+              e.dataTransfer.effectAllowed = 'move';
+              if (e.dataTransfer.setData) e.dataTransfer.setData('text/plain', '');
+              setTimeout(() => child.style.opacity = '0.5', 0);
+          });
+
+          child.addEventListener('dragend', () => {
+              if (draggedItem) {
+                  draggedItem.style.opacity = '1';
+              }
+              draggedItem = null;
+          });
+
+          child.addEventListener('dragover', (e) => {
+              e.preventDefault();
+              e.dataTransfer.dropEffect = 'move';
+              
+              if (child === draggedItem || !draggedItem) return;
+              
+              const rect = child.getBoundingClientRect();
+              const midpoint = rect.top + rect.height / 2;
+              if (e.clientY < midpoint) {
+                  container.insertBefore(draggedItem, child);
+              } else {
+                  container.insertBefore(draggedItem, child.nextSibling);
+              }
+          });
+
+          child.addEventListener('drop', (e) => {
+              e.preventDefault();
+              if (draggedItem) {
+                  draggedItem.style.opacity = '1';
+              }
+              const newArray = [];
+              Array.from(container.children).forEach(c => {
+                  const idx = parseInt(c.dataset.index, 10);
+                  if (!isNaN(idx)) {
+                      newArray.push(array[idx]);
+                  }
+              });
+              onReorder(newArray);
+          });
+
+          // --- Mobile Touch Drag & Drop ---
+          let pressTimer = null;
+          let isDragging = false;
+          let wasDragging = false;
+
+          child.addEventListener('touchstart', (e) => {
+              if (e.touches.length !== 1) return;
+              pressTimer = setTimeout(() => {
+                  isDragging = true;
+                  draggedItem = child;
+                  child.style.opacity = '0.5';
+                  if (navigator.vibrate) navigator.vibrate(50);
+              }, 400); // 400ms long press to activate drag
+          }, { passive: true });
+
+          child.addEventListener('touchmove', (e) => {
+              if (!isDragging || !draggedItem) {
+                  clearTimeout(pressTimer);
+                  return;
+              }
+              e.preventDefault(); // Prevent scrolling
+              
+              const touch = e.touches[0];
+              const target = document.elementFromPoint(touch.clientX, touch.clientY);
+              if (!target) return;
+              
+              let overItem = target;
+              while (overItem && overItem.parentNode !== container) {
+                  overItem = overItem.parentNode;
+              }
+              
+              if (overItem && overItem !== draggedItem && overItem.parentNode === container) {
+                  const rect = overItem.getBoundingClientRect();
+                  const midpoint = rect.top + rect.height / 2;
+                  if (touch.clientY < midpoint) {
+                      container.insertBefore(draggedItem, overItem);
+                  } else {
+                      container.insertBefore(draggedItem, overItem.nextSibling);
+                  }
+              }
+          }, { passive: false });
+
+          const endTouch = () => {
+              clearTimeout(pressTimer);
+              if (isDragging) {
+                  isDragging = false;
+                  wasDragging = true;
+                  setTimeout(() => wasDragging = false, 50);
+                  
+                  if (draggedItem) draggedItem.style.opacity = '1';
+                  draggedItem = null;
+                  
+                  const newArray = [];
+                  Array.from(container.children).forEach(c => {
+                      const idx = parseInt(c.dataset.index, 10);
+                      if (!isNaN(idx)) newArray.push(array[idx]);
+                  });
+                  onReorder(newArray);
+              }
+          };
+
+          child.addEventListener('touchend', endTouch);
+          child.addEventListener('touchcancel', endTouch);
+
+          child.addEventListener('click', (e) => {
+              if (wasDragging) {
+                  e.stopPropagation();
+                  e.preventDefault();
+              }
+          }, true); // Capture phase to intercept clicks before children
+      });
+  }
+
   function getExerciseObj(name) {
       let ex = data.exercises.find(e => e.name === name);
       if (!ex) {
@@ -130,6 +256,11 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function renderView(viewName) {
+    if (viewName === 'exercise-detail' && ['home', 'programs', 'routines', 'exercises'].includes(currentViewName)) {
+        exerciseReturnView = currentViewName;
+    }
+    currentViewName = viewName;
+
     const template = document.getElementById(`view-${viewName}`);
     if (!template) return;
 
@@ -179,16 +310,23 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       if (data.home.items.length > 0) {
-        data.home.items.forEach(item => {
+        const homeContainer = document.createElement('div');
+        data.home.items.forEach((item, index) => {
           const div = document.createElement('div');
           div.className = 'list-item';
           div.textContent = item;
+          div.dataset.index = index;
           div.addEventListener('click', () => {
              currentExercise = item;
              renderView('exercise-detail');
           });
-          listContainer.appendChild(div);
+          homeContainer.appendChild(div);
         });
+        setupReorderable(homeContainer, data.home.items, (newArr) => {
+           data.home.items = newArr;
+           renderView('home');
+        });
+        listContainer.appendChild(homeContainer);
         emptyState.style.display = 'none';
       } else {
         emptyState.style.display = 'block';
@@ -209,11 +347,14 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       if (data.programs.length > 0) {
-        data.programs.forEach(prog => {
+        const sortedProgs = [...data.programs].sort((a,b) => a.name.localeCompare(b.name));
+        sortedProgs.forEach(prog => {
+          const progContainer = document.createElement('div');
+          
           const header = document.createElement('div');
           header.className = 'list-header';
           header.innerHTML = `<span class="list-header-title">${prog.name}</span> <button class="btn-add-sm">+</button>`;
-          listContainer.appendChild(header);
+          progContainer.appendChild(header);
 
           const headerBtn = header.querySelector('.btn-add-sm');
           headerBtn.addEventListener('click', () => {
@@ -226,7 +367,11 @@ document.addEventListener('DOMContentLoaded', () => {
             });
           });
 
-          prog.items.forEach(routineName => {
+          const routinesContainer = document.createElement('div');
+          prog.items.forEach((routineName, index) => {
+            const rWrapper = document.createElement('div');
+            rWrapper.dataset.index = index;
+            
             let rout = data.routines.find(r => r.name === routineName);
             if (!rout) {
                 rout = { name: routineName, items: [] };
@@ -238,7 +383,7 @@ document.addEventListener('DOMContentLoaded', () => {
             rHeader.style.marginTop = '8px';
             rHeader.style.paddingLeft = '24px';
             rHeader.innerHTML = `<span class="list-header-title">${routineName}</span> <button class="btn-add-sm">+</button>`;
-            listContainer.appendChild(rHeader);
+            rWrapper.appendChild(rHeader);
 
             const rHeaderBtn = rHeader.querySelector('.btn-add-sm');
             rHeaderBtn.addEventListener('click', () => {
@@ -255,9 +400,23 @@ document.addEventListener('DOMContentLoaded', () => {
               const div = document.createElement('div');
               div.className = 'list-item';
               div.textContent = exName;
-              listContainer.appendChild(div);
+              div.addEventListener('click', () => {
+                  currentExercise = exName;
+                  renderView('exercise-detail');
+              });
+              rWrapper.appendChild(div);
             });
+            
+            routinesContainer.appendChild(rWrapper);
           });
+          
+          setupReorderable(routinesContainer, prog.items, (newArr) => {
+              prog.items = newArr;
+              renderView('programs');
+          });
+          
+          progContainer.appendChild(routinesContainer);
+          listContainer.appendChild(progContainer);
         });
         emptyState.style.display = 'none';
       } else {
@@ -281,11 +440,14 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       if (data.routines.length > 0) {
-        data.routines.forEach(rout => {
+        const sortedRouts = [...data.routines].sort((a,b) => a.name.localeCompare(b.name));
+        sortedRouts.forEach(rout => {
+          const routContainer = document.createElement('div');
+          
           const header = document.createElement('div');
           header.className = 'list-header';
           header.innerHTML = `<span class="list-header-title">${rout.name}</span> <button class="btn-add-sm">+</button>`;
-          listContainer.appendChild(header);
+          routContainer.appendChild(header);
 
           const headerBtn = header.querySelector('.btn-add-sm');
           headerBtn.addEventListener('click', () => {
@@ -298,12 +460,26 @@ document.addEventListener('DOMContentLoaded', () => {
             });
           });
 
-          rout.items.forEach(item => {
+          const itemsContainer = document.createElement('div');
+          rout.items.forEach((item, index) => {
             const div = document.createElement('div');
             div.className = 'list-item';
             div.textContent = item;
-            listContainer.appendChild(div);
+            div.dataset.index = index;
+            div.addEventListener('click', () => {
+                currentExercise = item;
+                renderView('exercise-detail');
+            });
+            itemsContainer.appendChild(div);
           });
+          
+          setupReorderable(itemsContainer, rout.items, (newArr) => {
+             rout.items = newArr;
+             renderView('routines');
+          });
+          
+          routContainer.appendChild(itemsContainer);
+          listContainer.appendChild(routContainer);
         });
         emptyState.style.display = 'none';
       } else {
@@ -347,7 +523,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (titleSpan) titleSpan.textContent = currentExercise;
       
       const backBtn = content.querySelector('.back-btn');
-      backBtn.addEventListener('click', () => renderView('exercises'));
+      backBtn.addEventListener('click', () => renderView(exerciseReturnView));
       
       const editIcon = content.querySelector('.edit-icon');
       if (editIcon) {
