@@ -1,4 +1,4 @@
-const APP_VERSION = '0.29';
+const APP_VERSION = '0.30';
 document.addEventListener('DOMContentLoaded', () => {
   const mainContent = document.getElementById('main-content');
   const navLinks = document.querySelectorAll('.nav-link');
@@ -182,6 +182,12 @@ document.addEventListener('DOMContentLoaded', () => {
       if (val) {
           sdDialog.close();
           if(currentSelectionCallback) currentSelectionCallback(val);
+      }
+  });
+
+  sdInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+          sdSaveBtn.click();
       }
   });
 
@@ -445,6 +451,151 @@ document.addEventListener('DOMContentLoaded', () => {
               }
           }, true); // Capture phase to intercept clicks before children
       });
+  }
+
+  function addLongPressListener(element, callback) {
+      let timer;
+      let isLongPress = false;
+      const delay = 600;
+
+      const start = (e) => {
+          if (e.type === 'touchstart' && e.touches.length > 1) return;
+          isLongPress = false;
+          timer = setTimeout(() => {
+              isLongPress = true;
+              if (navigator.vibrate) navigator.vibrate(50);
+              callback(e);
+          }, delay);
+      };
+
+      const cancel = () => {
+          clearTimeout(timer);
+      };
+
+      element.addEventListener('mousedown', start);
+      element.addEventListener('touchstart', start, { passive: true });
+      element.addEventListener('mouseup', cancel);
+      element.addEventListener('mouseleave', cancel);
+      element.addEventListener('touchend', cancel);
+      element.addEventListener('touchmove', cancel);
+      
+      element.addEventListener('click', (e) => {
+          if (isLongPress) {
+              e.preventDefault();
+              e.stopPropagation();
+          }
+      }, true);
+  }
+
+  function renderInlineRename(elementToReplace, initialValue, onSave) {
+      const parent = elementToReplace.parentNode;
+      if (parent.querySelector('.inline-edit-row')) return;
+
+      const originalDisplay = elementToReplace.style.display;
+      
+      // If it's a header title, we might want to hide the action buttons too
+      const siblingButtons = parent.querySelector('div[style*="display:flex"]');
+      const originalButtonsDisplay = siblingButtons ? siblingButtons.style.display : null;
+      
+      elementToReplace.style.display = 'none';
+      if (siblingButtons) siblingButtons.style.display = 'none';
+
+      const row = document.createElement('div');
+      row.className = 'inline-edit-row';
+
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.className = 'inline-input';
+      input.value = initialValue;
+      input.setAttribute('autocapitalize', 'none');
+
+      const actions = document.createElement('div');
+      actions.className = 'inline-actions';
+
+      const saveBtn = document.createElement('span');
+      saveBtn.className = 'material-icons-outlined inline-btn inline-save';
+      saveBtn.textContent = 'check';
+
+      const cancelBtn = document.createElement('span');
+      cancelBtn.className = 'material-icons-outlined inline-btn inline-cancel';
+      cancelBtn.textContent = 'close';
+
+      actions.appendChild(saveBtn);
+      actions.appendChild(cancelBtn);
+      row.appendChild(input);
+      row.appendChild(actions);
+
+      parent.insertBefore(row, elementToReplace.nextSibling);
+      input.focus();
+      input.select();
+
+      const finish = (success) => {
+          row.remove();
+          elementToReplace.style.display = originalDisplay;
+          if (siblingButtons) siblingButtons.style.display = originalButtonsDisplay;
+          
+          if (success) {
+              const val = input.value.trim();
+              if (val && val !== initialValue) {
+                  onSave(val);
+              }
+          }
+      };
+
+      saveBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          finish(true);
+      });
+      cancelBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          finish(false);
+      });
+      input.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter') finish(true);
+          if (e.key === 'Escape') finish(false);
+      });
+      input.addEventListener('click', (e) => e.stopPropagation());
+  }
+
+  function renameExercise(oldName, newName) {
+      if (!newName || oldName === newName) return;
+      const ex = data.exercises.find(e => e.name === oldName);
+      if (ex) ex.name = newName;
+      
+      data.routines.forEach(r => {
+          r.items = r.items.map(item => item === oldName ? newName : item);
+      });
+      
+      data.programs.forEach(p => {
+          p.items = p.items.map(item => item === oldName ? newName : item);
+      });
+
+      if (data.home.history) {
+          Object.keys(data.home.history).forEach(date => {
+              data.home.history[date] = data.home.history[date].map(item => item === oldName ? newName : item);
+          });
+      }
+      
+      if (currentExercise === oldName) currentExercise = newName;
+      saveData();
+  }
+
+  function renameRoutine(oldName, newName) {
+      if (!newName || oldName === newName) return;
+      const rout = data.routines.find(r => r.name === oldName);
+      if (rout) rout.name = newName;
+      
+      data.programs.forEach(p => {
+          p.items = p.items.map(item => item === oldName ? newName : item);
+      });
+      saveData();
+  }
+
+  function renameProgram(oldName, newName) {
+      if (!newName || oldName === newName) return;
+      const prog = data.programs.find(p => p.name === oldName);
+      if (prog) prog.name = newName;
+      saveData();
   }
 
   function getExerciseObj(name) {
@@ -724,8 +875,16 @@ document.addEventListener('DOMContentLoaded', () => {
           
           const header = document.createElement('div');
           header.className = 'list-header';
-          header.innerHTML = `<span class="list-header-title">${prog.name}</span> <div style="display:flex"><button class="btn-add-sm">+</button><button class="btn-remove-sm material-icons-outlined">close</button></div>`;
+          header.innerHTML = `<span class="list-header-title" style="cursor: pointer;">${prog.name}</span> <div style="display:flex"><button class="btn-add-sm">+</button><button class="btn-remove-sm material-icons-outlined">close</button></div>`;
           progContainer.appendChild(header);
+
+          const titleSpan = header.querySelector('.list-header-title');
+          addLongPressListener(titleSpan, () => {
+              renderInlineRename(titleSpan, prog.name, (newName) => {
+                  renameProgram(prog.name, newName);
+                  renderView('programs');
+              });
+          });
 
           const headerRmBtn = header.querySelector('.btn-remove-sm');
           headerRmBtn.addEventListener('click', () => {
@@ -854,8 +1013,16 @@ document.addEventListener('DOMContentLoaded', () => {
           
           const header = document.createElement('div');
           header.className = 'list-header';
-          header.innerHTML = `<span class="list-header-title">${rout.name}</span> <div style="display:flex"><button class="btn-add-sm">+</button><button class="btn-remove-sm material-icons-outlined">close</button></div>`;
+          header.innerHTML = `<span class="list-header-title" style="cursor: pointer;">${rout.name}</span> <div style="display:flex"><button class="btn-add-sm">+</button><button class="btn-remove-sm material-icons-outlined">close</button></div>`;
           routContainer.appendChild(header);
+
+          const titleSpan = header.querySelector('.list-header-title');
+          addLongPressListener(titleSpan, () => {
+              renderInlineRename(titleSpan, rout.name, (newName) => {
+                  renameRoutine(rout.name, newName);
+                  renderView('routines');
+              });
+          });
 
           const headerRmBtn = header.querySelector('.btn-remove-sm');
           headerRmBtn.addEventListener('click', () => {
@@ -952,7 +1119,15 @@ document.addEventListener('DOMContentLoaded', () => {
           const textSpan = document.createElement('span');
           textSpan.style.flex = '1';
           textSpan.textContent = item.name;
+          textSpan.style.cursor = 'pointer';
           div.appendChild(textSpan);
+
+          addLongPressListener(textSpan, () => {
+              renderInlineRename(textSpan, item.name, (newName) => {
+                  renameExercise(item.name, newName);
+                  renderView('exercises');
+              });
+          });
           
           const rmBtn = document.createElement('button');
           rmBtn.className = 'btn-remove-sm material-icons-outlined';

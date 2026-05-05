@@ -474,9 +474,19 @@ body {
   padding: 4px;
   background: #e6e6e6;
   border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 .inline-save {
   background: var(--primary-color);
+}
+
+.inline-edit-row {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	flex: 1;
 }
 
 /* Dialog */
