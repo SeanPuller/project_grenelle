@@ -1127,5 +1127,52 @@ document.addEventListener('DOMContentLoaded', () => {
       });
   }
 
+  // --- Swipe Navigation ---
+  let touchStartX = 0;
+  let touchStartY = 0;
+  let touchEndX = 0;
+  let touchEndY = 0;
+
+  const mainViews = ['home', 'programs', 'routines', 'exercises'];
+
+  mainContent.addEventListener('touchstart', (e) => {
+      touchStartX = e.changedTouches[0].screenX;
+      touchStartY = e.changedTouches[0].screenY;
+  }, { passive: true });
+
+  mainContent.addEventListener('touchend', (e) => {
+      touchEndX = e.changedTouches[0].screenX;
+      touchEndY = e.changedTouches[0].screenY;
+      handleSwipe();
+  }, { passive: true });
+
+  function handleSwipe() {
+      const xDiff = touchStartX - touchEndX;
+      const yDiff = touchStartY - touchEndY;
+      
+      if (Math.abs(xDiff) < Math.abs(yDiff)) {
+          return; // Mostly vertical swipe, likely scrolling
+      }
+      
+      if (Math.abs(xDiff) < 50) {
+          return; // Swipe too short
+      }
+      
+      const currentIndex = mainViews.indexOf(currentViewName);
+      if (currentIndex === -1) return; // Only swipe on main views
+
+      if (xDiff > 0) {
+          // Swipe left -> go to next view
+          if (currentIndex < mainViews.length - 1) {
+              renderView(mainViews[currentIndex + 1]);
+          }
+      } else {
+          // Swipe right -> go to prev view
+          if (currentIndex > 0) {
+              renderView(mainViews[currentIndex - 1]);
+          }
+      }
+  }
+
   renderView('home');
 });
