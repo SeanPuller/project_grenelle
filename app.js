@@ -850,11 +850,14 @@ document.addEventListener('DOMContentLoaded', () => {
           grid.style.gap = '12px';
           grid.style.alignItems = 'center';
           grid.style.marginBottom = '16px';
-          
+
+          let currentSetType = 's';
+          let sLabelEl = null;
+
           exObj.types.forEach((t, i) => {
               const row = Math.floor(i / 2) + 1;
               const col = (i % 2) + 2;
-              
+
               if (i === 0) {
                   const sLabel = document.createElement('span');
                   sLabel.className = 'input-label';
@@ -862,6 +865,19 @@ document.addEventListener('DOMContentLoaded', () => {
                   sLabel.style.gridColumn = '1';
                   sLabel.style.gridRow = '1';
                   sLabel.style.textAlign = 'right';
+                  sLabel.style.cursor = 'pointer';
+                  sLabel.style.userSelect = 'none';
+                  sLabel.addEventListener('click', () => {
+                      if (currentSetType === 's') {
+                          currentSetType = 'w';
+                      } else if (currentSetType === 'w') {
+                          currentSetType = 'p';
+                      } else {
+                          currentSetType = 's';
+                      }
+                      sLabel.textContent = currentSetType;
+                  });
+                  sLabelEl = sLabel;
                   grid.appendChild(sLabel);
               }
               
@@ -952,7 +968,7 @@ document.addEventListener('DOMContentLoaded', () => {
              });
              if (hasData) {
                  const today = getCurrentDate();
-                 const logEntry = { date: today, data: newLog };
+                 const logEntry = { date: today, data: newLog, type: currentSetType };
                  
                  let finalTags = new Set();
                  if (data.home && data.home.tags && data.home.tags[today]) {
@@ -976,8 +992,8 @@ document.addEventListener('DOMContentLoaded', () => {
       if (exObj.logs && exObj.logs.length > 0) {
           const grouped = {};
           exObj.logs.forEach(log => {
-              if(!grouped[log.date]) grouped[log.date] = [];
-              grouped[log.date].push({ ...log, index: grouped[log.date].length + 1 });
+              if (!grouped[log.date]) grouped[log.date] = [];
+              grouped[log.date].push(log);
           });
           
           const sortedDates = Object.keys(grouped).reverse();
@@ -990,14 +1006,26 @@ document.addEventListener('DOMContentLoaded', () => {
               const todayStr = new Date().toLocaleDateString('en-GB').replace(/\//g, '-');
               header.innerHTML = `<span>${dateStr === todayStr ? 'today' : dateStr}</span>`;
               dayDiv.appendChild(header);
-              
+
+              let workSetCount = 0;
               grouped[dateStr].forEach(set => {
+                  const setType = set.type || 's';
+                  let setLabel;
+                  if (setType === 'w') {
+                      setLabel = 'W';
+                  } else if (setType === 'p') {
+                      setLabel = 'P';
+                  } else {
+                      workSetCount++;
+                      setLabel = workSetCount.toString();
+                  }
+
                   const setRow = document.createElement('div');
                   setRow.className = 'set-row';
-                  
+
                   const numSpan = document.createElement('span');
                   numSpan.className = 'set-num';
-                  numSpan.textContent = set.index;
+                  numSpan.textContent = setLabel;
                   setRow.appendChild(numSpan);
                   
                   const metricsGrid = document.createElement('div');
@@ -1023,9 +1051,9 @@ document.addEventListener('DOMContentLoaded', () => {
                       }
                   });
                   
-                  // Add 1RM if only kg and reps
+                  // Add 1RM if only kg and reps (only for regular sets)
                   const dataKeys = Object.keys(set.data);
-                  if (dataKeys.length === 2 && dataKeys.includes('kg') && dataKeys.includes('reps')) {
+                  if (setType === 's' && dataKeys.length === 2 && dataKeys.includes('kg') && dataKeys.includes('reps')) {
                       const w = parseFloat(set.data.kg);
                       const r = parseInt(set.data.reps, 10);
                       if (!isNaN(w) && !isNaN(r) && r > 0) {
