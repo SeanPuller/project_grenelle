@@ -8,6 +8,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const DEFAULT_DATA = {
     version: 1,
+    settings: { debugDate: '' },
     home: {
       date: new Date().toLocaleDateString('en-GB').replace(/\//g, '-'),
       items: []
@@ -24,6 +25,7 @@ document.addEventListener('DOMContentLoaded', () => {
           const parsed = JSON.parse(saved);
           data = {
               version: parsed.version || 1,
+              settings: parsed.settings || { debugDate: '' },
               home: parsed.home || DEFAULT_DATA.home,
               programs: parsed.programs || [],
               routines: parsed.routines || [],
@@ -32,6 +34,13 @@ document.addEventListener('DOMContentLoaded', () => {
       }
   } catch(e) {
       console.error('Failed to parse saved data', e);
+  }
+
+  function getCurrentDate() {
+      if (data.settings && data.settings.debugDate) {
+          return data.settings.debugDate;
+      }
+      return new Date().toLocaleDateString('en-GB').replace(/\//g, '-');
   }
 
   function saveData() {
@@ -313,6 +322,10 @@ document.addEventListener('DOMContentLoaded', () => {
     if (viewName === 'home') {
       const listContainer = content.getElementById('home-list');
       const emptyState = content.getElementById('home-empty');
+      const dateDisplay = content.getElementById('home-date-display');
+      if (dateDisplay) {
+          dateDisplay.textContent = getCurrentDate();
+      }
       
       const mainAddBtn = content.querySelector('.btn-add');
       if (mainAddBtn) {
@@ -629,7 +642,7 @@ document.addEventListener('DOMContentLoaded', () => {
                  }
              });
              if (hasData) {
-                 const today = new Date().toLocaleDateString('en-GB').replace(/\//g, '-');
+                 const today = getCurrentDate();
                  exObj.logs.push({ date: today, data: newLog });
                  renderView('exercise-detail');
              }
@@ -759,6 +772,16 @@ document.addEventListener('DOMContentLoaded', () => {
       const backBtn = content.querySelector('.back-btn');
       if (backBtn) {
           backBtn.addEventListener('click', () => renderView('home'));
+      }
+      
+      const debugInput = content.querySelector('#debug-date-input');
+      if (debugInput) {
+          debugInput.value = data.settings?.debugDate || '';
+          debugInput.addEventListener('change', (e) => {
+              if (!data.settings) data.settings = {};
+              data.settings.debugDate = e.target.value.trim();
+              saveData();
+          });
       }
       
       const clearBtn = content.querySelector('#btn-clear-data');
