@@ -1022,6 +1022,48 @@ document.addEventListener('DOMContentLoaded', () => {
               renderView('settings');
           });
       }
+      const exportBtn = content.querySelector('#btn-export-data');
+      if (exportBtn) {
+          exportBtn.addEventListener('click', () => {
+              const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(data, null, 2));
+              const downloadAnchorNode = document.createElement('a');
+              downloadAnchorNode.setAttribute("href", dataStr);
+              downloadAnchorNode.setAttribute("download", `grenelle_fitness_data_${getCurrentDate()}.json`);
+              document.body.appendChild(downloadAnchorNode);
+              downloadAnchorNode.click();
+              downloadAnchorNode.remove();
+          });
+      }
+
+      const importInput = content.querySelector('#import-file-input');
+      if (importInput) {
+          importInput.addEventListener('change', (e) => {
+              const file = e.target.files[0];
+              if (!file) return;
+
+              const reader = new FileReader();
+              reader.onload = (event) => {
+                  try {
+                      const importedData = JSON.parse(event.target.result);
+                      if (importedData && typeof importedData.version !== 'undefined') {
+                          if (confirm('Are you sure you want to overwrite your current data with this backup?')) {
+                              data = importedData;
+                              saveData();
+                              applyColors();
+                              renderView('home');
+                          }
+                      } else {
+                          alert('Invalid backup file format.');
+                      }
+                  } catch (err) {
+                      alert('Failed to parse backup file.');
+                  }
+                  // Reset input so the same file can be selected again if needed
+                  e.target.value = '';
+              };
+              reader.readAsText(file);
+          });
+      }
       
       const clearBtn = content.querySelector('#btn-clear-data');
       if (clearBtn) {
