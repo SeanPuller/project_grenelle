@@ -6,10 +6,10 @@ document.addEventListener('DOMContentLoaded', () => {
   let currentViewName = 'home';
   let exerciseReturnView = 'exercises';
 
-  // Mock data mimicking the provided designs
-  const data = {
+  const DEFAULT_DATA = {
+    version: 1,
     home: {
-      date: '18 october 2026',
+      date: new Date().toLocaleDateString('en-GB').replace(/\//g, '-'),
       items: []
     },
     programs: [],
@@ -17,6 +17,34 @@ document.addEventListener('DOMContentLoaded', () => {
     exercises: []
   };
 
+  let data = JSON.parse(JSON.stringify(DEFAULT_DATA));
+  try {
+      const saved = localStorage.getItem('grenelle_fitness_data');
+      if (saved) {
+          const parsed = JSON.parse(saved);
+          data = {
+              version: parsed.version || 1,
+              home: parsed.home || DEFAULT_DATA.home,
+              programs: parsed.programs || [],
+              routines: parsed.routines || [],
+              exercises: parsed.exercises || []
+          };
+      }
+  } catch(e) {
+      console.error('Failed to parse saved data', e);
+  }
+
+  function saveData() {
+      localStorage.setItem('grenelle_fitness_data', JSON.stringify(data, null, 2));
+  }
+
+  const settingsIcon = document.querySelector('.settings-icon');
+  if (settingsIcon) {
+      settingsIcon.addEventListener('click', () => {
+          renderView('settings');
+      });
+  }
+  
   const sdDialog = document.getElementById('selection-dialog');
   const sdTitle = document.getElementById('sd-title');
   const sdList = document.getElementById('sd-list');
@@ -727,9 +755,26 @@ document.addEventListener('DOMContentLoaded', () => {
           exObj.types = newTypes;
           renderView('exercise-detail');
       });
+    } else if (viewName === 'settings') {
+      const backBtn = content.querySelector('.back-btn');
+      if (backBtn) {
+          backBtn.addEventListener('click', () => renderView('home'));
+      }
+      
+      const clearBtn = content.querySelector('#btn-clear-data');
+      if (clearBtn) {
+          clearBtn.addEventListener('click', () => {
+              if (confirm('Are you sure you want to clear all data? This cannot be undone.')) {
+                  localStorage.removeItem('grenelle_fitness_data');
+                  data = JSON.parse(JSON.stringify(DEFAULT_DATA));
+                  renderView('home');
+              }
+          });
+      }
     }
 
     mainContent.appendChild(content);
+    saveData();
   }
 
   navLinks.forEach(link => {
