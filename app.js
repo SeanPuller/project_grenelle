@@ -79,6 +79,29 @@ document.addEventListener('DOMContentLoaded', () => {
       return data.home.history[date];
   }
 
+  function getAllTags() {
+      const tags = new Set();
+      if (data.home && data.home.tags) {
+          Object.values(data.home.tags).forEach(dayTags => {
+              if (Array.isArray(dayTags)) dayTags.forEach(t => tags.add(t));
+          });
+      }
+      if (data.exercises) {
+          data.exercises.forEach(ex => {
+              if (ex.logs) {
+                  ex.logs.forEach(log => {
+                      if (log.tags && Array.isArray(log.tags)) {
+                          log.tags.forEach(t => tags.add(t));
+                      } else if (log.tag) {
+                          log.tag.split(/[\s,]+/).filter(t=>t).forEach(t => tags.add(t));
+                      }
+                  });
+              }
+          });
+      }
+      return Array.from(tags).sort();
+  }
+
   function saveData() {
       localStorage.setItem('grenelle_fitness_data', JSON.stringify(data, null, 2));
   }
@@ -374,6 +397,51 @@ document.addEventListener('DOMContentLoaded', () => {
 
       if (dateDisplay) {
           dateDisplay.textContent = todayStr;
+      }
+      
+      const tagsSpan = content.querySelector('.add-tags');
+      if (tagsSpan) {
+          if (!data.home.tags) data.home.tags = {};
+          const currentTags = data.home.tags[todayStr] || [];
+          
+          tagsSpan.innerHTML = '';
+          if (currentTags.length > 0) {
+              currentTags.forEach(t => {
+                  const s = document.createElement('span');
+                  s.textContent = `#${t} `;
+                  s.style.color = 'var(--text-dark)';
+                  s.style.fontWeight = '600';
+                  s.style.cursor = 'pointer';
+                  s.addEventListener('click', (e) => {
+                      e.stopPropagation();
+                      data.home.tags[todayStr] = data.home.tags[todayStr].filter(x => x !== t);
+                      saveData();
+                      renderView('home');
+                  });
+                  tagsSpan.appendChild(s);
+              });
+          }
+          
+          const addS = document.createElement('span');
+          addS.textContent = '<add tags>';
+          addS.style.cursor = 'pointer';
+          addS.addEventListener('click', (e) => {
+              e.stopPropagation();
+              const allTags = getAllTags().map(t => ({ label: `#${t}`, value: t }));
+              openSelectionDialog('Select a tag', allTags, (selection) => {
+                  let val = typeof selection === 'string' ? selection : selection.value;
+                  if (val) {
+                      val = val.replace(/^#/, '').trim();
+                      if (!data.home.tags[todayStr]) data.home.tags[todayStr] = [];
+                      if (!data.home.tags[todayStr].includes(val)) {
+                          data.home.tags[todayStr].push(val);
+                          saveData();
+                          renderView('home');
+                      }
+                  }
+              }, 'add new tag');
+          });
+          tagsSpan.appendChild(addS);
       }
       
       const mainAddBtn = content.querySelector('.btn-add');
@@ -825,7 +893,48 @@ document.addEventListener('DOMContentLoaded', () => {
           tagSpan.style.gridColumn = '4';
           tagSpan.style.gridRow = numRows.toString();
           tagSpan.style.textAlign = 'right';
+          tagSpan.style.cursor = 'pointer';
           grid.appendChild(tagSpan);
+          
+          let currentTags = [];
+          
+          const renderTagSpan = () => {
+              tagSpan.innerHTML = '';
+              if (currentTags.length > 0) {
+                  currentTags.forEach(t => {
+                      const s = document.createElement('span');
+                      s.textContent = `#${t} `;
+                      s.style.color = 'var(--text-dark)';
+                      s.style.fontWeight = '600';
+                      s.style.cursor = 'pointer';
+                      s.addEventListener('click', (e) => {
+                          e.stopPropagation();
+                          currentTags = currentTags.filter(x => x !== t);
+                          renderTagSpan();
+                      });
+                      tagSpan.appendChild(s);
+                  });
+              }
+              const addS = document.createElement('span');
+              addS.textContent = '<add tag>';
+              addS.style.cursor = 'pointer';
+              addS.addEventListener('click', (e) => {
+                  e.stopPropagation();
+                  const allTags = getAllTags().map(t => ({ label: `#${t}`, value: t }));
+                  openSelectionDialog('Select a tag', allTags, (selection) => {
+                      let val = typeof selection === 'string' ? selection : selection.value;
+                      if (val) {
+                          val = val.replace(/^#/, '').trim();
+                          if (!currentTags.includes(val)) {
+                              currentTags.push(val);
+                              renderTagSpan();
+                          }
+                      }
+                  }, 'add new tag');
+              });
+              tagSpan.appendChild(addS);
+          };
+          renderTagSpan();
           
           logSection.appendChild(grid);
           
@@ -843,7 +952,19 @@ document.addEventListener('DOMContentLoaded', () => {
              });
              if (hasData) {
                  const today = getCurrentDate();
-                 exObj.logs.push({ date: today, data: newLog });
+                 const logEntry = { date: today, data: newLog };
+                 
+                 let finalTags = new Set();
+                 if (data.home && data.home.tags && data.home.tags[today]) {
+                     data.home.tags[today].forEach(t => finalTags.add(t));
+                 }
+                 currentTags.forEach(t => finalTags.add(t));
+                 
+                 if (finalTags.size > 0) {
+                     logEntry.tags = Array.from(finalTags);
+                 }
+                 
+                 exObj.logs.push(logEntry);
                  renderView('exercise-detail');
              }
           });
@@ -918,7 +1039,22 @@ document.addEventListener('DOMContentLoaded', () => {
                           metricsGrid.appendChild(rmSpan);
                       }
                   }
+                  let tagsToRender = [];
+                  if (set.tags && Array.isArray(set.tags)) {
+                      tagsToRender = set.tags;
+                  } else if (set.tag) {
+                      tagsToRender = set.tag.split(/[\s,]+/).filter(t=>t);
+                  }
                   
+                  if (tagsToRender.length > 0) {
+                      const tagDisplay = document.createElement('span');
+                      tagDisplay.className = 'set-tag';
+                      tagDisplay.style.color = 'var(--text-dark)';
+                      tagDisplay.style.fontSize = '12px';
+                      tagDisplay.style.fontWeight = '600';
+                      tagDisplay.textContent = tagsToRender.map(t => `#${t}`).join(' ');
+                      metricsGrid.appendChild(tagDisplay);
+                  }
                   setRow.appendChild(metricsGrid);
                   dayDiv.appendChild(setRow);
               });
