@@ -1,4 +1,4 @@
-const APP_VERSION = '0.25';
+const APP_VERSION = '0.26';
 document.addEventListener('DOMContentLoaded', () => {
   const mainContent = document.getElementById('main-content');
   const navLinks = document.querySelectorAll('.nav-link');
@@ -1007,7 +1007,11 @@ document.addEventListener('DOMContentLoaded', () => {
               grouped[log.date].push(log);
           });
           
-          const sortedDates = Object.keys(grouped).reverse();
+          const parseDateKey = (d) => {
+              const [dd, mm, yyyy] = d.split('-');
+              return new Date(`${yyyy}-${mm}-${dd}`).getTime();
+          };
+          const sortedDates = Object.keys(grouped).sort((a, b) => parseDateKey(b) - parseDateKey(a));
           sortedDates.forEach(dateStr => {
               const dayDiv = document.createElement('div');
               dayDiv.className = 'history-day';
