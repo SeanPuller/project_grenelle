@@ -6,9 +6,15 @@ document.addEventListener('DOMContentLoaded', () => {
   let currentViewName = 'home';
   let exerciseReturnView = 'exercises';
 
+  const DEFAULT_COLORS = {
+      primary: '#beff5c',
+      bg: '#ffffff',
+      textDark: '#111111'
+  };
+
   const DEFAULT_DATA = {
     version: 1,
-    settings: { debugDate: '' },
+    settings: { debugDate: '', colors: { ...DEFAULT_COLORS } },
     home: {
       history: {}
     },
@@ -24,7 +30,7 @@ document.addEventListener('DOMContentLoaded', () => {
           const parsed = JSON.parse(saved);
           data = {
               version: parsed.version || 1,
-              settings: parsed.settings || { debugDate: '' },
+              settings: parsed.settings || { debugDate: '', colors: { ...DEFAULT_COLORS } },
               home: parsed.home || DEFAULT_DATA.home,
               programs: parsed.programs || [],
               routines: parsed.routines || [],
@@ -34,6 +40,15 @@ document.addEventListener('DOMContentLoaded', () => {
   } catch(e) {
       console.error('Failed to parse saved data', e);
   }
+
+  function applyColors() {
+      const colors = (data.settings && data.settings.colors) ? data.settings.colors : DEFAULT_COLORS;
+      document.documentElement.style.setProperty('--primary-color', colors.primary);
+      document.documentElement.style.setProperty('--bg-color', colors.bg);
+      document.documentElement.style.setProperty('--text-dark', colors.textDark);
+  }
+
+  applyColors();
 
   function getCurrentDate() {
       if (data.settings && data.settings.debugDate) {
@@ -951,6 +966,42 @@ document.addEventListener('DOMContentLoaded', () => {
               if (!data.settings) data.settings = {};
               data.settings.debugDate = e.target.value.trim();
               saveData();
+          });
+      }
+
+      const colorPrimary = content.querySelector('#color-primary');
+      const colorBg = content.querySelector('#color-bg');
+      const colorTextDark = content.querySelector('#color-text-dark');
+      
+      if (colorPrimary && colorBg && colorTextDark) {
+          const currentColors = (data.settings && data.settings.colors) ? data.settings.colors : DEFAULT_COLORS;
+          colorPrimary.value = currentColors.primary;
+          colorBg.value = currentColors.bg;
+          colorTextDark.value = currentColors.textDark;
+          
+          const updateColor = () => {
+              if (!data.settings) data.settings = {};
+              if (!data.settings.colors) data.settings.colors = {};
+              data.settings.colors.primary = colorPrimary.value;
+              data.settings.colors.bg = colorBg.value;
+              data.settings.colors.textDark = colorTextDark.value;
+              applyColors();
+              saveData();
+          };
+          
+          colorPrimary.addEventListener('input', updateColor);
+          colorBg.addEventListener('input', updateColor);
+          colorTextDark.addEventListener('input', updateColor);
+      }
+      
+      const resetBtn = content.querySelector('#btn-reset-colors');
+      if (resetBtn) {
+          resetBtn.addEventListener('click', () => {
+              if (!data.settings) data.settings = {};
+              data.settings.colors = { ...DEFAULT_COLORS };
+              applyColors();
+              saveData();
+              renderView('settings');
           });
       }
       

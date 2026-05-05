@@ -248,7 +248,7 @@ body {
 }
 
 .d-nav-link.active {
-	background-color: #bfff00; /* lime green from mockup */
+	background-color: var(--primary-color);
 	color: var(--text-dark);
 }
 
