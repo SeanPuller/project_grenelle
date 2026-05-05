@@ -9,7 +9,10 @@ document.addEventListener('DOMContentLoaded', () => {
   const DEFAULT_COLORS = {
       primary: '#beff5c',
       bg: '#ffffff',
-      textDark: '#111111'
+      textDark: '#111111',
+      textLight: '#666666',
+      textDisabled: '#bbbbbb',
+      border: '#e0e0e0'
   };
 
   const DEFAULT_DATA = {
@@ -43,9 +46,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function applyColors() {
       const colors = (data.settings && data.settings.colors) ? data.settings.colors : DEFAULT_COLORS;
-      document.documentElement.style.setProperty('--primary-color', colors.primary);
-      document.documentElement.style.setProperty('--bg-color', colors.bg);
-      document.documentElement.style.setProperty('--text-dark', colors.textDark);
+      document.documentElement.style.setProperty('--primary-color', colors.primary || DEFAULT_COLORS.primary);
+      document.documentElement.style.setProperty('--bg-color', colors.bg || DEFAULT_COLORS.bg);
+      document.documentElement.style.setProperty('--text-dark', colors.textDark || DEFAULT_COLORS.textDark);
+      document.documentElement.style.setProperty('--text-light', colors.textLight || DEFAULT_COLORS.textLight);
+      document.documentElement.style.setProperty('--text-disabled', colors.textDisabled || DEFAULT_COLORS.textDisabled);
+      document.documentElement.style.setProperty('--border-color', colors.border || DEFAULT_COLORS.border);
   }
 
   applyColors();
@@ -972,12 +978,18 @@ document.addEventListener('DOMContentLoaded', () => {
       const colorPrimary = content.querySelector('#color-primary');
       const colorBg = content.querySelector('#color-bg');
       const colorTextDark = content.querySelector('#color-text-dark');
+      const colorTextLight = content.querySelector('#color-text-light');
+      const colorTextDisabled = content.querySelector('#color-text-disabled');
+      const colorBorder = content.querySelector('#color-border');
       
       if (colorPrimary && colorBg && colorTextDark) {
           const currentColors = (data.settings && data.settings.colors) ? data.settings.colors : DEFAULT_COLORS;
-          colorPrimary.value = currentColors.primary;
-          colorBg.value = currentColors.bg;
-          colorTextDark.value = currentColors.textDark;
+          colorPrimary.value = currentColors.primary || DEFAULT_COLORS.primary;
+          colorBg.value = currentColors.bg || DEFAULT_COLORS.bg;
+          colorTextDark.value = currentColors.textDark || DEFAULT_COLORS.textDark;
+          colorTextLight.value = currentColors.textLight || DEFAULT_COLORS.textLight;
+          colorTextDisabled.value = currentColors.textDisabled || DEFAULT_COLORS.textDisabled;
+          colorBorder.value = currentColors.border || DEFAULT_COLORS.border;
           
           const updateColor = () => {
               if (!data.settings) data.settings = {};
@@ -985,6 +997,9 @@ document.addEventListener('DOMContentLoaded', () => {
               data.settings.colors.primary = colorPrimary.value;
               data.settings.colors.bg = colorBg.value;
               data.settings.colors.textDark = colorTextDark.value;
+              data.settings.colors.textLight = colorTextLight.value;
+              data.settings.colors.textDisabled = colorTextDisabled.value;
+              data.settings.colors.border = colorBorder.value;
               applyColors();
               saveData();
           };
@@ -992,6 +1007,9 @@ document.addEventListener('DOMContentLoaded', () => {
           colorPrimary.addEventListener('input', updateColor);
           colorBg.addEventListener('input', updateColor);
           colorTextDark.addEventListener('input', updateColor);
+          colorTextLight.addEventListener('input', updateColor);
+          colorTextDisabled.addEventListener('input', updateColor);
+          colorBorder.addEventListener('input', updateColor);
       }
       
       const resetBtn = content.querySelector('#btn-reset-colors');
