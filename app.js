@@ -1,4 +1,4 @@
-const APP_VERSION = '0.27';
+const APP_VERSION = '0.28';
 document.addEventListener('DOMContentLoaded', () => {
   const mainContent = document.getElementById('main-content');
   const navLinks = document.querySelectorAll('.nav-link');
@@ -6,6 +6,7 @@ document.addEventListener('DOMContentLoaded', () => {
   let currentExercise = '';
   let currentViewName = 'home';
   let exerciseReturnView = 'exercises';
+  let homeLogsViewDate = null; // null means today
 
   const DEFAULT_COLORS = {
       primary: '#beff5c',
@@ -183,6 +184,92 @@ document.addEventListener('DOMContentLoaded', () => {
           if(currentSelectionCallback) currentSelectionCallback(val);
       }
   });
+
+  // --- Calendar Dialog Logic ---
+  const calDialog = document.getElementById('calendar-dialog');
+  const calMonthLabel = document.getElementById('cal-month-label');
+  const calGrid = document.getElementById('cal-grid');
+  const calPrev = document.getElementById('cal-prev');
+  const calNext = document.getElementById('cal-next');
+  const calCancel = document.getElementById('cal-cancel');
+
+  let calViewDate = new Date(); // Month currently being viewed in calendar
+  let calOnSelect = null;
+
+  function openCalendarDialog(initialDateStr, onSelect) {
+      calOnSelect = onSelect;
+      
+      // Parse initial date (dd-mm-yyyy)
+      const parts = initialDateStr.split('-');
+      calViewDate = new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, 1);
+      
+      renderCalendar();
+      calDialog.showModal();
+  }
+
+  function renderCalendar() {
+      calGrid.innerHTML = '';
+      const year = calViewDate.getFullYear();
+      const month = calViewDate.getMonth();
+      
+      calMonthLabel.textContent = calViewDate.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' }).toLowerCase();
+      
+      // Days with logs for highlighting
+      const loggedDates = new Set();
+      data.exercises.forEach(ex => {
+          if (ex.logs) ex.logs.forEach(l => loggedDates.add(l.date));
+      });
+
+      const todayStr = new Date().toLocaleDateString('en-GB').replace(/\//g, '-');
+      const selectedStr = homeLogsViewDate || todayStr;
+
+      // Start of month
+      const firstDay = new Date(year, month, 1).getDay();
+      const daysInMonth = new Date(year, month + 1, 0).getDate();
+      
+      // Adjust for Monday start (JS getDay is 0 for Sun)
+      const startOffset = (firstDay === 0) ? 6 : firstDay - 1;
+
+      // Empty slots before 1st
+      for (let i = 0; i < startOffset; i++) {
+          const div = document.createElement('div');
+          div.className = 'cal-day empty';
+          calGrid.appendChild(div);
+      }
+
+      // Day slots
+      for (let d = 1; d <= daysInMonth; d++) {
+          const div = document.createElement('div');
+          div.className = 'cal-day';
+          div.textContent = d;
+          
+          const dateStr = `${d.toString().padStart(2, '0')}-${(month + 1).toString().padStart(2, '0')}-${year}`;
+          
+          if (dateStr === todayStr) div.classList.add('today');
+          if (dateStr === selectedStr) div.classList.add('selected');
+          if (loggedDates.has(dateStr)) div.classList.add('has-logs');
+          
+          div.addEventListener('click', () => {
+              calDialog.close();
+              if (calOnSelect) calOnSelect(dateStr);
+          });
+          
+          calGrid.appendChild(div);
+      }
+  }
+
+  calPrev.addEventListener('click', () => {
+      calViewDate.setMonth(calViewDate.getMonth() - 1);
+      renderCalendar();
+  });
+
+  calNext.addEventListener('click', () => {
+      calViewDate.setMonth(calViewDate.getMonth() + 1);
+      renderCalendar();
+  });
+
+  calCancel.addEventListener('click', () => calDialog.close());
+
 
   function renderInlineAdd(listContainer, onSave, onCancel) {
       if (listContainer.querySelector('.inline-add-row')) return;
@@ -373,6 +460,9 @@ document.addEventListener('DOMContentLoaded', () => {
     if (viewName === 'exercise-detail' && ['home', 'programs', 'routines', 'exercises'].includes(currentViewName)) {
         exerciseReturnView = currentViewName;
     }
+    if (currentViewName === 'home' && viewName !== 'home') {
+        homeLogsViewDate = null; // reset to today when leaving home
+    }
     currentViewName = viewName;
 
     const template = document.getElementById(`view-${viewName}`);
@@ -402,16 +492,26 @@ document.addEventListener('DOMContentLoaded', () => {
       const dateDisplay = content.getElementById('home-date-display');
       
       const todayStr = getCurrentDate();
-      const itemsToday = getHomeItemsForDate(todayStr);
+      const logsDate = homeLogsViewDate || todayStr;
+      const isViewingToday = logsDate === todayStr;
+
+      const itemsForDate = getHomeItemsForDate(logsDate);
 
       if (dateDisplay) {
-          dateDisplay.textContent = todayStr;
+          dateDisplay.textContent = isViewingToday ? todayStr : logsDate;
+          dateDisplay.style.cursor = 'pointer';
+          dateDisplay.addEventListener('click', () => {
+              openCalendarDialog(logsDate, (selected) => {
+                  homeLogsViewDate = selected === todayStr ? null : selected;
+                  renderView('home');
+              });
+          });
       }
       
       const tagsSpan = content.querySelector('.add-tags');
       if (tagsSpan) {
           if (!data.home.tags) data.home.tags = {};
-          const currentTags = data.home.tags[todayStr] || [];
+          const currentTags = data.home.tags[logsDate] || [];
           
           tagsSpan.innerHTML = '';
           if (currentTags.length > 0) {
@@ -423,7 +523,7 @@ document.addEventListener('DOMContentLoaded', () => {
                   s.style.cursor = 'pointer';
                   s.addEventListener('click', (e) => {
                       e.stopPropagation();
-                      data.home.tags[todayStr] = data.home.tags[todayStr].filter(x => x !== t);
+                      data.home.tags[logsDate] = data.home.tags[logsDate].filter(x => x !== t);
                       saveData();
                       renderView('home');
                   });
@@ -441,9 +541,9 @@ document.addEventListener('DOMContentLoaded', () => {
                   let val = typeof selection === 'string' ? selection : selection.value;
                   if (val) {
                       val = val.replace(/^#/, '').trim();
-                      if (!data.home.tags[todayStr]) data.home.tags[todayStr] = [];
-                      if (!data.home.tags[todayStr].includes(val)) {
-                          data.home.tags[todayStr].push(val);
+                      if (!data.home.tags[logsDate]) data.home.tags[logsDate] = [];
+                      if (!data.home.tags[logsDate].includes(val)) {
+                          data.home.tags[logsDate].push(val);
                           saveData();
                           renderView('home');
                       }
@@ -462,23 +562,23 @@ document.addEventListener('DOMContentLoaded', () => {
 
           openSelectionDialog('Add routine or exercise', allOptions, (selection) => {
             if (typeof selection === 'string') {
-                itemsToday.push(selection);
+                itemsForDate.push(selection);
                 getExerciseObj(selection);
             } else if (selection.type === 'routine') {
                 selection.items.forEach(exName => {
-                    itemsToday.push(exName);
+                    itemsForDate.push(exName);
                 });
             } else {
-                itemsToday.push(selection.name);
+                itemsForDate.push(selection.name);
             }
             renderView('home');
           }, 'add new exercise');
         });
       }
 
-      if (itemsToday.length > 0) {
+      if (itemsForDate.length > 0) {
         const homeContainer = document.createElement('div');
-        itemsToday.forEach((item, index) => {
+        itemsForDate.forEach((item, index) => {
           const div = document.createElement('div');
           div.className = 'list-item';
           div.style.display = 'flex';
@@ -494,7 +594,7 @@ document.addEventListener('DOMContentLoaded', () => {
           rmBtn.textContent = 'close';
           rmBtn.addEventListener('click', (e) => {
               e.stopPropagation();
-              itemsToday.splice(index, 1);
+              itemsForDate.splice(index, 1);
               renderView('home');
           });
           div.appendChild(rmBtn);
@@ -506,8 +606,8 @@ document.addEventListener('DOMContentLoaded', () => {
           });
           homeContainer.appendChild(div);
         });
-        setupReorderable(homeContainer, itemsToday, (newArr) => {
-           data.home.history[todayStr] = newArr;
+        setupReorderable(homeContainer, itemsForDate, (newArr) => {
+           data.home.history[logsDate] = newArr;
            renderView('home');
         });
         listContainer.appendChild(homeContainer);
@@ -516,16 +616,16 @@ document.addEventListener('DOMContentLoaded', () => {
         emptyState.style.display = 'block';
       }
 
-      // Render today's logs summary if setting is on
+      // Render logs summary if setting is on
       const showLogs = data.settings?.showHomeLogs !== false;
       const dayLogsContainer = content.getElementById('home-day-logs');
       if (dayLogsContainer && showLogs) {
-          // Collect all logs for today across all exercises
+          // Collect all logs for the viewed date across all exercises
           const todayLogs = [];
           data.exercises.forEach(ex => {
               if (ex.logs) {
                   ex.logs.forEach(log => {
-                      if (log.date === todayStr) {
+                      if (log.date === logsDate) {
                           todayLogs.push({ ex, log });
                       }
                   });
@@ -542,7 +642,7 @@ document.addEventListener('DOMContentLoaded', () => {
                   if (ts < byExercise[ex.name].firstTs) byExercise[ex.name].firstTs = ts;
               });
 
-              // Sort exercises by time of first set logged today
+              // Sort exercises by time of first set logged
               const sortedExercises = Object.entries(byExercise)
                   .sort(([, a], [, b]) => a.firstTs - b.firstTs);
 
@@ -552,7 +652,7 @@ document.addEventListener('DOMContentLoaded', () => {
               const logsHeading = document.createElement('div');
               logsHeading.className = 'settings-subheading';
               logsHeading.style.marginTop = '0';
-              logsHeading.textContent = 'today\'s sets';
+              logsHeading.textContent = isViewingToday ? "today's sets" : `sets on ${logsDate}`;
               logsSection.appendChild(logsHeading);
 
               sortedExercises.forEach(([exName, { ex, logs }]) => {

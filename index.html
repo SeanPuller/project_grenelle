@@ -267,6 +267,21 @@
 			<button type="button" class="btn-dialog-add" id="sd-save-btn" style="display: none;">save</button>
 		</div>
 	</dialog>
+	
+	<dialog id="calendar-dialog">
+		<div class="cal-header">
+			<span class="cal-nav material-icons-outlined" id="cal-prev">chevron_left</span>
+			<span id="cal-month-label"></span>
+			<span class="cal-nav material-icons-outlined" id="cal-next">chevron_right</span>
+		</div>
+		<div class="cal-day-names">
+			<span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span><span>S</span>
+		</div>
+		<div id="cal-grid" class="cal-grid"></div>
+		<div style="display: flex; justify-content: flex-start;">
+			<button type="button" id="cal-cancel">cancel</button>
+		</div>
+	</dialog>
 
 	<script src="app.js"></script>
 </body>
