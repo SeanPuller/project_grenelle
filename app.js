@@ -199,7 +199,10 @@ document.addEventListener('DOMContentLoaded', () => {
       let draggedItem = null;
 
       Array.from(container.children).forEach(child => {
-          child.draggable = true;
+          // Disable native HTML5 drag on touch devices to prevent conflicts
+          if (!('ontouchstart' in window)) {
+              child.draggable = true;
+          }
 
           // --- Desktop Drag & Drop ---
           child.addEventListener('dragstart', (e) => {
@@ -260,6 +263,12 @@ document.addEventListener('DOMContentLoaded', () => {
                   if (navigator.vibrate) navigator.vibrate(50);
               }, 400); // 400ms long press to activate drag
           }, { passive: true });
+
+          child.addEventListener('contextmenu', (e) => {
+              if (isDragging) {
+                  e.preventDefault();
+              }
+          });
 
           child.addEventListener('touchmove', (e) => {
               if (!isDragging || !draggedItem) {
