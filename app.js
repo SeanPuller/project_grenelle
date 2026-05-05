@@ -2,6 +2,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const mainContent = document.getElementById('main-content');
   const navLinks = document.querySelectorAll('.nav-link');
 
+  let currentExercise = '';
+
   // Mock data mimicking the provided designs
   const data = {
     home: {
@@ -57,7 +59,10 @@ document.addEventListener('DOMContentLoaded', () => {
           const div = document.createElement('div');
           div.className = 'list-item';
           div.textContent = item;
-          div.addEventListener('click', () => renderView('exercise-detail'));
+          div.addEventListener('click', () => {
+             currentExercise = item;
+             renderView('exercise-detail');
+          });
           listContainer.appendChild(div);
         });
         emptyState.style.display = 'none';
@@ -88,7 +93,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
           const headerBtn = header.querySelector('.btn-add-sm');
           headerBtn.addEventListener('click', () => {
-            const name = prompt(`Add item to program "${prog.name}":`);
+            const name = prompt(`Add routine to program "${prog.name}":`);
             if (name && name.trim() !== '') {
               prog.items.push(name.trim());
               renderView('programs');
@@ -130,7 +135,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
           const headerBtn = header.querySelector('.btn-add-sm');
           headerBtn.addEventListener('click', () => {
-            const name = prompt(`Add item to routine "${rout.name}":`);
+            const name = prompt(`Add exercise to routine "${rout.name}":`);
             if (name && name.trim() !== '') {
               rout.items.push(name.trim());
               renderView('routines');
@@ -168,7 +173,10 @@ document.addEventListener('DOMContentLoaded', () => {
           const div = document.createElement('div');
           div.className = 'list-item';
           div.textContent = item;
-          div.addEventListener('click', () => renderView('exercise-detail'));
+          div.addEventListener('click', () => {
+              currentExercise = item;
+              renderView('exercise-detail');
+          });
           listContainer.appendChild(div);
         });
         emptyState.style.display = 'none';
@@ -176,6 +184,9 @@ document.addEventListener('DOMContentLoaded', () => {
         emptyState.style.display = 'block';
       }
     } else if (viewName === 'exercise-detail') {
+      const titleSpan = content.querySelector('.ex-name');
+      if (titleSpan) titleSpan.textContent = currentExercise;
+      
       const backBtn = content.querySelector('.back-btn');
       backBtn.addEventListener('click', () => renderView('exercises'));
       
@@ -184,6 +195,9 @@ document.addEventListener('DOMContentLoaded', () => {
           editIcon.addEventListener('click', () => renderView('exercise-edit'));
       }
     } else if (viewName === 'exercise-edit') {
+      const titleSpan = content.querySelector('.ex-name');
+      if (titleSpan) titleSpan.textContent = currentExercise;
+
       const backBtn = content.querySelector('.back-btn');
       backBtn.addEventListener('click', () => renderView('exercise-detail'));
       

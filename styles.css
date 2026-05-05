@@ -214,6 +214,10 @@ body {
 .edit-icon {
 	font-size: 16px;
 	cursor: pointer;
+	display: inline-flex;
+	align-items: center;
+	vertical-align: middle;
+	margin-top: 1px;
 }
 
 .detail-nav {
