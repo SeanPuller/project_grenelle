@@ -359,15 +359,34 @@ document.addEventListener('DOMContentLoaded', () => {
       logSection.innerHTML = '';
       
       if (exObj.types.length > 0) {
-          const inputRow = document.createElement('div');
-          inputRow.className = 'input-row';
+          const grid = document.createElement('div');
+          grid.style.display = 'grid';
+          grid.style.gridTemplateColumns = '20px 100px 100px 1fr';
+          grid.style.gap = '12px';
+          grid.style.alignItems = 'center';
+          grid.style.marginBottom = '16px';
           
-          const sLabel = document.createElement('span');
-          sLabel.className = 'input-label';
-          sLabel.textContent = 's';
-          inputRow.appendChild(sLabel);
-          
-          exObj.types.forEach(t => {
+          exObj.types.forEach((t, i) => {
+              const row = Math.floor(i / 2) + 1;
+              const col = (i % 2) + 2;
+              
+              if (i === 0) {
+                  const sLabel = document.createElement('span');
+                  sLabel.className = 'input-label';
+                  sLabel.textContent = 's';
+                  sLabel.style.gridColumn = '1';
+                  sLabel.style.gridRow = '1';
+                  sLabel.style.textAlign = 'right';
+                  grid.appendChild(sLabel);
+              }
+              
+              const wrapper = document.createElement('div');
+              wrapper.style.display = 'flex';
+              wrapper.style.alignItems = 'center';
+              wrapper.style.gap = '8px';
+              wrapper.style.gridColumn = col.toString();
+              wrapper.style.gridRow = row.toString();
+              
               const inp = document.createElement('input');
               inp.type = 'number';
               inp.className = 'val-input dyn-val';
@@ -377,16 +396,21 @@ document.addEventListener('DOMContentLoaded', () => {
               unit.className = 'unit';
               unit.textContent = t;
               
-              inputRow.appendChild(inp);
-              inputRow.appendChild(unit);
+              wrapper.appendChild(inp);
+              wrapper.appendChild(unit);
+              grid.appendChild(wrapper);
           });
           
+          const numRows = Math.ceil(exObj.types.length / 2);
           const tagSpan = document.createElement('span');
           tagSpan.className = 'add-tag-inline';
           tagSpan.textContent = '<add tag>';
-          inputRow.appendChild(tagSpan);
+          tagSpan.style.gridColumn = '4';
+          tagSpan.style.gridRow = numRows.toString();
+          tagSpan.style.textAlign = 'right';
+          grid.appendChild(tagSpan);
           
-          logSection.appendChild(inputRow);
+          logSection.appendChild(grid);
           
           const addBtn = document.createElement('button');
           addBtn.className = 'btn-large-add';
@@ -394,7 +418,7 @@ document.addEventListener('DOMContentLoaded', () => {
           addBtn.addEventListener('click', () => {
              const newLog = {};
              let hasData = false;
-             inputRow.querySelectorAll('.dyn-val').forEach(inp => {
+             grid.querySelectorAll('.dyn-val').forEach(inp => {
                  if(inp.value) {
                      newLog[inp.dataset.type] = inp.value;
                      hasData = true;
@@ -433,12 +457,52 @@ document.addEventListener('DOMContentLoaded', () => {
                   const setRow = document.createElement('div');
                   setRow.className = 'set-row';
                   
-                  let html = `<span class="set-num">${set.index}</span>`;
-                  Object.keys(set.data).forEach(k => {
-                      html += `<span style="margin-right: 12px;">${set.data[k]} ${k}</span>`;
+                  const numSpan = document.createElement('span');
+                  numSpan.className = 'set-num';
+                  numSpan.textContent = set.index;
+                  setRow.appendChild(numSpan);
+                  
+                  const metricsGrid = document.createElement('div');
+                  metricsGrid.style.display = 'grid';
+                  metricsGrid.style.gridTemplateColumns = '100px 100px 1fr';
+                  metricsGrid.style.gap = '4px 12px';
+                  metricsGrid.style.flex = '1';
+                  
+                  exObj.types.forEach(t => {
+                      const mSpan = document.createElement('span');
+                      if (set.data[t]) {
+                          mSpan.textContent = `${set.data[t]} ${t}`;
+                      }
+                      metricsGrid.appendChild(mSpan);
                   });
                   
-                  setRow.innerHTML = html;
+                  // For legacy logs with removed types
+                  Object.keys(set.data).forEach(k => {
+                      if (!exObj.types.includes(k)) {
+                          const mSpan = document.createElement('span');
+                          mSpan.textContent = `${set.data[k]} ${k}`;
+                          metricsGrid.appendChild(mSpan);
+                      }
+                  });
+                  
+                  // Add 1RM if only kg and reps
+                  const dataKeys = Object.keys(set.data);
+                  if (dataKeys.length === 2 && dataKeys.includes('kg') && dataKeys.includes('reps')) {
+                      const w = parseFloat(set.data.kg);
+                      const r = parseInt(set.data.reps, 10);
+                      if (!isNaN(w) && !isNaN(r) && r > 0) {
+                          const oneRm = Math.round(w * (1 + r / 30));
+                          const rmSpan = document.createElement('span');
+                          rmSpan.className = 'set-rm';
+                          rmSpan.textContent = `1rm ${oneRm}kg`;
+                          rmSpan.style.gridColumn = '3';
+                          rmSpan.style.gridRow = '1';
+                          rmSpan.style.textAlign = 'right';
+                          metricsGrid.appendChild(rmSpan);
+                      }
+                  }
+                  
+                  setRow.appendChild(metricsGrid);
                   dayDiv.appendChild(setRow);
               });
               
