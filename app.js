@@ -6,31 +6,11 @@ document.addEventListener('DOMContentLoaded', () => {
   const data = {
     home: {
       date: '18 october 2026',
-      items: [
-        'shoulder press barbell',
-        'incline bench press dumbell',
-        'flat bench press barbell'
-      ]
+      items: []
     },
-    programs: [
-      { name: '5x5', items: [] },
-      { name: 'workout a', items: ['barbell back squat', 'barbell bench press', 'barbell row'] },
-      { name: 'workout b', items: ['barbell back squat', 'barbell bench press', 'barbell row'] }
-    ],
-    routines: [
-      { name: 'legs', items: ['leg press', 'leg press single leg', 'squat barbell', 'hamstring curl', 'leg extension'] },
-      { name: 'chest and triceps', items: ['stretch hamstring'] },
-      { name: 'workout a', items: ['barbell back squat', 'barbell bench press', 'barbell row'] },
-      { name: 'workout b', items: ['barbell back squat', 'barbell bench press', 'barbell row'] }
-    ],
-    exercises: [
-      'cable rear delt single arm',
-      'leg press',
-      'leg press single leg',
-      'shoulder press barbell',
-      'stretch groin wall',
-      'stretch hamstring'
-    ]
+    programs: [],
+    routines: [],
+    exercises: []
   };
 
   function renderView(viewName) {
@@ -61,6 +41,17 @@ document.addEventListener('DOMContentLoaded', () => {
       const listContainer = content.getElementById('home-list');
       const emptyState = content.getElementById('home-empty');
       
+      const mainAddBtn = content.querySelector('.btn-add');
+      if (mainAddBtn) {
+        mainAddBtn.addEventListener('click', () => {
+          const name = prompt('Add routine/exercise to today:');
+          if (name && name.trim() !== '') {
+            data.home.items.push(name.trim());
+            renderView('home');
+          }
+        });
+      }
+
       if (data.home.items.length > 0) {
         data.home.items.forEach(item => {
           const div = document.createElement('div');
@@ -75,43 +66,115 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     } else if (viewName === 'programs') {
       const listContainer = content.getElementById('programs-list');
-      data.programs.forEach(prog => {
-        const header = document.createElement('div');
-        header.className = 'list-header';
-        header.innerHTML = `<span class="list-header-title">${prog.name}</span> <button class="btn-add-sm">+</button>`;
-        listContainer.appendChild(header);
-
-        prog.items.forEach(item => {
-          const div = document.createElement('div');
-          div.className = 'list-item';
-          div.textContent = item;
-          listContainer.appendChild(div);
+      const emptyState = content.getElementById('programs-empty');
+      
+      const mainAddBtn = content.querySelector('.main-add-row .btn-add');
+      if (mainAddBtn) {
+        mainAddBtn.addEventListener('click', () => {
+          const name = prompt('Add new program:');
+          if (name && name.trim() !== '') {
+            data.programs.push({ name: name.trim(), items: [] });
+            renderView('programs');
+          }
         });
-      });
+      }
+
+      if (data.programs.length > 0) {
+        data.programs.forEach(prog => {
+          const header = document.createElement('div');
+          header.className = 'list-header';
+          header.innerHTML = `<span class="list-header-title">${prog.name}</span> <button class="btn-add-sm">+</button>`;
+          listContainer.appendChild(header);
+
+          const headerBtn = header.querySelector('.btn-add-sm');
+          headerBtn.addEventListener('click', () => {
+            const name = prompt(`Add item to program "${prog.name}":`);
+            if (name && name.trim() !== '') {
+              prog.items.push(name.trim());
+              renderView('programs');
+            }
+          });
+
+          prog.items.forEach(item => {
+            const div = document.createElement('div');
+            div.className = 'list-item';
+            div.textContent = item;
+            listContainer.appendChild(div);
+          });
+        });
+        emptyState.style.display = 'none';
+      } else {
+        emptyState.style.display = 'block';
+      }
     } else if (viewName === 'routines') {
       const listContainer = content.getElementById('routines-list');
-      data.routines.forEach(rout => {
-        const header = document.createElement('div');
-        header.className = 'list-header';
-        header.innerHTML = `<span class="list-header-title">${rout.name}</span> <button class="btn-add-sm">+</button>`;
-        listContainer.appendChild(header);
+      const emptyState = content.getElementById('routines-empty');
+      
+      const mainAddBtn = content.querySelector('.main-add-row .btn-add');
+      if (mainAddBtn) {
+        mainAddBtn.addEventListener('click', () => {
+          const name = prompt('Add new routine:');
+          if (name && name.trim() !== '') {
+            data.routines.push({ name: name.trim(), items: [] });
+            renderView('routines');
+          }
+        });
+      }
 
-        rout.items.forEach(item => {
+      if (data.routines.length > 0) {
+        data.routines.forEach(rout => {
+          const header = document.createElement('div');
+          header.className = 'list-header';
+          header.innerHTML = `<span class="list-header-title">${rout.name}</span> <button class="btn-add-sm">+</button>`;
+          listContainer.appendChild(header);
+
+          const headerBtn = header.querySelector('.btn-add-sm');
+          headerBtn.addEventListener('click', () => {
+            const name = prompt(`Add item to routine "${rout.name}":`);
+            if (name && name.trim() !== '') {
+              rout.items.push(name.trim());
+              renderView('routines');
+            }
+          });
+
+          rout.items.forEach(item => {
+            const div = document.createElement('div');
+            div.className = 'list-item';
+            div.textContent = item;
+            listContainer.appendChild(div);
+          });
+        });
+        emptyState.style.display = 'none';
+      } else {
+        emptyState.style.display = 'block';
+      }
+    } else if (viewName === 'exercises') {
+      const listContainer = content.getElementById('exercises-list');
+      const emptyState = content.getElementById('exercises-empty');
+      
+      const mainAddBtn = content.querySelector('.main-add-row .btn-add');
+      if (mainAddBtn) {
+        mainAddBtn.addEventListener('click', () => {
+          const name = prompt('Add new exercise:');
+          if (name && name.trim() !== '') {
+            data.exercises.push(name.trim());
+            renderView('exercises');
+          }
+        });
+      }
+
+      if (data.exercises.length > 0) {
+        data.exercises.forEach(item => {
           const div = document.createElement('div');
           div.className = 'list-item';
           div.textContent = item;
+          div.addEventListener('click', () => renderView('exercise-detail'));
           listContainer.appendChild(div);
         });
-      });
-    } else if (viewName === 'exercises') {
-      const listContainer = content.getElementById('exercises-list');
-      data.exercises.forEach(item => {
-        const div = document.createElement('div');
-        div.className = 'list-item';
-        div.textContent = item;
-        div.addEventListener('click', () => renderView('exercise-detail'));
-        listContainer.appendChild(div);
-      });
+        emptyState.style.display = 'none';
+      } else {
+        emptyState.style.display = 'block';
+      }
     } else if (viewName === 'exercise-detail') {
       const backBtn = content.querySelector('.back-btn');
       backBtn.addEventListener('click', () => renderView('exercises'));

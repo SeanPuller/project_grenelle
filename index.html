@@ -1,244 +1,252 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Minimal Fitness App</title>
-  <link rel="stylesheet" href="styles.css">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Outlined" rel="stylesheet">
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+	<title>Minimal Fitness App</title>
+	<link rel="stylesheet" href="styles.css">
+	<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+	<link href="https://fonts.googleapis.com/icon?family=Material+Icons+Outlined" rel="stylesheet">
 </head>
+
 <body>
-  <div id="app">
-    <header class="app-header">
-      <div class="logo">
-        <span class="logo-text">-//--//-</span>
-      </div>
-      <div class="settings-icon">
-        <span class="material-icons-outlined">settings</span>
-      </div>
-    </header>
+	<div id="app">
+		<header class="app-header">
+			<div class="logo">
+				<span class="logo-text">-//--//-</span>
+			</div>
+			<div class="settings-icon">
+				<span class="material-icons-outlined">settings</span>
+			</div>
+		</header>
 
-    <nav class="top-nav">
-      <a href="#" class="nav-link active" data-target="home">home</a> <span class="sep">|</span>
-      <a href="#" class="nav-link" data-target="programs">programs</a> <span class="sep">|</span>
-      <a href="#" class="nav-link" data-target="routines">routines</a> <span class="sep">|</span>
-      <a href="#" class="nav-link" data-target="exercises">exercises</a>
-    </nav>
+		<nav class="top-nav">
+			<a href="#" class="nav-link active" data-target="home">home</a> <span class="sep">|</span>
+			<a href="#" class="nav-link" data-target="programs">programs</a> <span class="sep">|</span>
+			<a href="#" class="nav-link" data-target="routines">routines</a> <span class="sep">|</span>
+			<a href="#" class="nav-link" data-target="exercises">exercises</a>
+		</nav>
 
-    <main id="main-content">
-      <!-- Views will be injected here -->
-    </main>
-  </div>
+		<main id="main-content">
+			<!-- Views will be injected here -->
+		</main>
+	</div>
 
-  <!-- Templates -->
-  <template id="view-home">
-    <div class="home-view">
-      <div class="date-header">
-        <span class="highlight">18 october 2026</span>
-      </div>
-      <div class="add-section">
-        <span class="add-tags">&lt;add tags&gt;</span>
-        <button class="btn-add">+</button>
-      </div>
-      
-      <!-- List container for populated state -->
-      <div class="list-container" id="home-list"></div>
-      
-      <!-- Empty state container -->
-      <div class="list-container" id="home-empty" style="display: none;">
-        <div class="list-item empty-state">
-           add routine/exercise to begin
-        </div>
-      </div>
-    </div>
-  </template>
+	<!-- Templates -->
+	<template id="view-home">
+		<div class="home-view">
+			<div class="date-header">
+				<span class="highlight" id="home-date-display">18 october 2026</span>
+			</div>
+			<div class="add-section" style="border-bottom: none;">
+				<span class="add-tags">&lt;add tags&gt;</span>
+				<button class="btn-add">+</button>
+			</div>
+			<!-- List container for populated state -->
+			<div class="list-container" id="home-list"></div>
 
-  <template id="view-programs">
-    <div class="programs-view">
-      <div class="add-section">
-        <span class="add-tags">add program to begin</span>
-        <button class="btn-add">+</button>
-      </div>
-      <div class="list-container" id="programs-list"></div>
-    </div>
-  </template>
-  
-  <template id="view-routines">
-    <div class="routines-view">
-       <div class="add-section">
-           <span class="add-tags">add routine to begin</span>
-           <button class="btn-add">+</button>
-       </div>
-       <div class="list-container" id="routines-list"></div>
-    </div>
-  </template>
+			<!-- Empty state container -->
+			<div class="empty-state-row" id="home-empty">
+				add routine/exercise to begin
+			</div>
+		</div>
+	</template>
 
-  <template id="view-exercises">
-    <div class="exercises-view">
-       <div class="add-section">
-           <span class="add-tags">add exercise to begin</span>
-           <button class="btn-add">+</button>
-       </div>
-       <div class="list-container" id="exercises-list"></div>
-    </div>
-  </template>
+	<template id="view-programs">
+		<div class="programs-view">
+			<div class="main-add-row">
+				<button class="btn-add">+</button>
+			</div>
+			<div class="list-container" id="programs-list"></div>
+			<div class="empty-state-row" id="programs-empty">
+				add program to begin
+			</div>
+		</div>
+	</template>
 
-  <template id="view-exercise-detail">
-    <div class="exercise-detail-view">
-      <div class="detail-header">
-        <span class="material-icons-outlined back-btn">arrow_back</span>
-        <div class="detail-title">exercises / shoulder press <span class="material-icons-outlined edit-icon">edit_square</span></div>
-      </div>
-      
-      <nav class="detail-nav">
-        <a href="#" class="d-nav-link active">logs</a> <span class="sep">|</span>
-        <a href="#" class="d-nav-link">notes</a> <span class="sep">|</span>
-        <a href="#" class="d-nav-link">graph</a>
-      </nav>
-      
-      <div class="log-input-section">
-        <div class="input-row">
-          <span class="input-label">s</span>
-          <input type="number" class="val-input" placeholder="">
-          <span class="unit">kg</span>
-          <input type="number" class="val-input" placeholder="">
-          <span class="unit">reps</span>
-          <span class="add-tag-inline">&lt;add tag&gt;</span>
-        </div>
-        <button class="btn-large-add">+</button>
-      </div>
+	<template id="view-routines">
+		<div class="routines-view">
+			<div class="main-add-row">
+				<button class="btn-add">+</button>
+			</div>
+			<div class="list-container" id="routines-list"></div>
+			<div class="empty-state-row" id="routines-empty">
+				add routine to begin
+			</div>
+		</div>
+	</template>
 
-      <div class="history-list">
-        <div class="history-day">
-          <div class="day-header">
-            <span>today</span>
-            <span class="day-tag">&lt;hotel&gt;</span>
-          </div>
-          <div class="set-row">
-            <span class="set-num">1</span>
-            <span class="set-val">400000 kg</span>
-            <span class="set-reps">1200 reps</span>
-            <span class="set-rm">1rm 70kg</span>
-            <span class="set-tag">&lt;partial&gt;</span>
-          </div>
-          <div class="set-row">
-            <span class="set-num">2</span>
-            <span class="set-val">400000 kg</span>
-            <span class="set-reps">1200 reps</span>
-            <span class="set-rm">1rm 70kg</span>
-          </div>
-          <div class="set-row">
-            <span class="set-num">3</span>
-            <span class="set-val">400000 kg</span>
-            <span class="set-reps">1200 reps</span>
-            <span class="set-rm">1rm 70kg</span>
-          </div>
-        </div>
-        
-        <div class="history-day">
-          <div class="day-header">
-            <span>20-03-2026</span>
-          </div>
-          <div class="set-row">
-            <span class="set-num">1</span>
-            <span class="set-val">400000 kg</span>
-            <span class="set-reps">1200 reps</span>
-            <span class="set-rm disabled">1rm 70kg</span>
-          </div>
-          <div class="set-row">
-            <span class="set-num">2</span>
-            <span class="set-val">400000 kg</span>
-            <span class="set-reps">1200 reps</span>
-            <span class="set-rm disabled">1rm 70kg</span>
-          </div>
-          <div class="set-row">
-            <span class="set-num">3</span>
-            <span class="set-val">400000 kg</span>
-            <span class="set-reps">1200 reps</span>
-            <span class="set-rm disabled">1rm 70kg</span>
-          </div>
-        </div>
-        
-        <div class="history-day">
-          <div class="day-header">
-            <span>10-03-2026</span>
-          </div>
-          <div class="set-row">
-            <span class="set-num">1</span>
-            <span class="set-val">400000 kg</span>
-            <span class="set-reps">1200 reps</span>
-            <span class="set-rm disabled">1rm 70kg</span>
-          </div>
-          <div class="set-row">
-            <span class="set-num">2</span>
-            <span class="set-val">400000 kg</span>
-            <span class="set-reps">1200 reps</span>
-            <span class="set-rm disabled">1rm 70kg</span>
-          </div>
-          <div class="set-row">
-            <span class="set-num">3</span>
-            <span class="set-val">400000 kg</span>
-            <span class="set-reps">1200 reps</span>
-            <span class="set-rm disabled">1rm 70kg</span>
-          </div>
-        </div>
-      </div>
-    </div>
-  </template>
+	<template id="view-exercises">
+		<div class="exercises-view">
+			<div class="main-add-row">
+				<button class="btn-add">+</button>
+			</div>
+			<div class="list-container" id="exercises-list"></div>
+			<div class="empty-state-row" id="exercises-empty">
+				add exercise to begin
+			</div>
+		</div>
+	</template>
 
-  <template id="view-exercise-edit">
-    <div class="exercise-edit-view">
-      <div class="detail-header">
-        <span class="material-icons-outlined back-btn">arrow_back</span>
-        <div class="detail-title">exercises / shoulder press <span class="material-icons-outlined edit-icon">edit_square</span></div>
-      </div>
-      
-      <div class="edit-subtitle">edit</div>
-      
-      <div class="edit-options">
-        <div class="edit-row">
-            <label class="custom-checkbox">
-                <input type="checkbox" checked>
-                <span class="checkmark material-icons-outlined">check_box</span>
-                kg
-            </label>
-            <label class="custom-checkbox">
-                <input type="checkbox" checked>
-                <span class="checkmark material-icons-outlined">check_box</span>
-                reps
-            </label>
-        </div>
-        <div class="edit-row">
-            <label class="custom-checkbox">
-                <input type="checkbox">
-                <span class="checkmark material-icons-outlined">check_box_outline_blank</span>
-                km
-            </label>
-            <label class="custom-checkbox">
-                <input type="checkbox">
-                <span class="checkmark material-icons-outlined">check_box_outline_blank</span>
-                m
-            </label>
-        </div>
-        <div class="edit-row">
-            <label class="custom-checkbox">
-                <input type="checkbox">
-                <span class="checkmark material-icons-outlined">check_box_outline_blank</span>
-                laps
-            </label>
-            <label class="custom-checkbox">
-                <input type="checkbox">
-                <span class="checkmark material-icons-outlined">check_box_outline_blank</span>
-                time
-            </label>
-        </div>
-      </div>
-      
-      <button class="btn-large-add">save</button>
-    </div>
-  </template>
+	<template id="view-exercise-detail">
+		<div class="exercise-detail-view">
+			<div class="detail-header">
+				<span class="material-icons-outlined back-btn">arrow_back</span>
+				<div class="detail-title">exercises / shoulder press <span
+						class="material-icons-outlined edit-icon">edit_square</span></div>
+			</div>
 
-  <script src="app.js"></script>
+			<nav class="detail-nav">
+				<a href="#" class="d-nav-link active">logs</a> <span class="sep">|</span>
+				<a href="#" class="d-nav-link">notes</a> <span class="sep">|</span>
+				<a href="#" class="d-nav-link">graph</a>
+			</nav>
+
+			<div class="log-input-section">
+				<div class="input-row">
+					<span class="input-label">s</span>
+					<input type="number" class="val-input" placeholder="">
+					<span class="unit">kg</span>
+					<input type="number" class="val-input" placeholder="">
+					<span class="unit">reps</span>
+					<span class="add-tag-inline">&lt;add tag&gt;</span>
+				</div>
+				<button class="btn-large-add">+</button>
+			</div>
+
+			<div class="history-list">
+				<div class="history-day">
+					<div class="day-header">
+						<span>today</span>
+						<span class="day-tag">&lt;hotel&gt;</span>
+					</div>
+					<div class="set-row">
+						<span class="set-num">1</span>
+						<span class="set-val">400000 kg</span>
+						<span class="set-reps">1200 reps</span>
+						<span class="set-rm">1rm 70kg</span>
+						<span class="set-tag">&lt;partial&gt;</span>
+					</div>
+					<div class="set-row">
+						<span class="set-num">2</span>
+						<span class="set-val">400000 kg</span>
+						<span class="set-reps">1200 reps</span>
+						<span class="set-rm">1rm 70kg</span>
+					</div>
+					<div class="set-row">
+						<span class="set-num">3</span>
+						<span class="set-val">400000 kg</span>
+						<span class="set-reps">1200 reps</span>
+						<span class="set-rm">1rm 70kg</span>
+					</div>
+				</div>
+
+				<div class="history-day">
+					<div class="day-header">
+						<span>20-03-2026</span>
+					</div>
+					<div class="set-row">
+						<span class="set-num">1</span>
+						<span class="set-val">400000 kg</span>
+						<span class="set-reps">1200 reps</span>
+						<span class="set-rm disabled">1rm 70kg</span>
+					</div>
+					<div class="set-row">
+						<span class="set-num">2</span>
+						<span class="set-val">400000 kg</span>
+						<span class="set-reps">1200 reps</span>
+						<span class="set-rm disabled">1rm 70kg</span>
+					</div>
+					<div class="set-row">
+						<span class="set-num">3</span>
+						<span class="set-val">400000 kg</span>
+						<span class="set-reps">1200 reps</span>
+						<span class="set-rm disabled">1rm 70kg</span>
+					</div>
+				</div>
+
+				<div class="history-day">
+					<div class="day-header">
+						<span>10-03-2026</span>
+					</div>
+					<div class="set-row">
+						<span class="set-num">1</span>
+						<span class="set-val">400000 kg</span>
+						<span class="set-reps">1200 reps</span>
+						<span class="set-rm disabled">1rm 70kg</span>
+					</div>
+					<div class="set-row">
+						<span class="set-num">2</span>
+						<span class="set-val">400000 kg</span>
+						<span class="set-reps">1200 reps</span>
+						<span class="set-rm disabled">1rm 70kg</span>
+					</div>
+					<div class="set-row">
+						<span class="set-num">3</span>
+						<span class="set-val">400000 kg</span>
+						<span class="set-reps">1200 reps</span>
+						<span class="set-rm disabled">1rm 70kg</span>
+					</div>
+				</div>
+			</div>
+		</div>
+	</template>
+
+	<template id="view-exercise-edit">
+		<div class="exercise-edit-view">
+			<div class="detail-header">
+				<span class="material-icons-outlined back-btn">arrow_back</span>
+				<div class="detail-title">exercises / shoulder press <span
+						class="material-icons-outlined edit-icon">edit_square</span></div>
+			</div>
+
+			<div class="edit-subtitle">edit</div>
+
+			<div class="edit-options">
+				<div class="edit-row">
+					<label class="custom-checkbox">
+						<input type="checkbox" checked>
+						<span class="checkmark material-icons-outlined">check_box</span>
+						kg
+					</label>
+					<label class="custom-checkbox">
+						<input type="checkbox" checked>
+						<span class="checkmark material-icons-outlined">check_box</span>
+						reps
+					</label>
+				</div>
+				<div class="edit-row">
+					<label class="custom-checkbox">
+						<input type="checkbox">
+						<span class="checkmark material-icons-outlined">check_box_outline_blank</span>
+						km
+					</label>
+					<label class="custom-checkbox">
+						<input type="checkbox">
+						<span class="checkmark material-icons-outlined">check_box_outline_blank</span>
+						m
+					</label>
+				</div>
+				<div class="edit-row">
+					<label class="custom-checkbox">
+						<input type="checkbox">
+						<span class="checkmark material-icons-outlined">check_box_outline_blank</span>
+						laps
+					</label>
+					<label class="custom-checkbox">
+						<input type="checkbox">
+						<span class="checkmark material-icons-outlined">check_box_outline_blank</span>
+						time
+					</label>
+				</div>
+			</div>
+
+			<button class="btn-large-add">save</button>
+		</div>
+	</template>
+
+	<script src="app.js"></script>
 </body>
+
 </html>

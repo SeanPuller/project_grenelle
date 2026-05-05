@@ -1,348 +1,379 @@
 :root {
-  --primary-color: #BEFF5C; /* Bright lime green */
-  --text-dark: #111111;
-  --text-light: #666666;
-  --text-disabled: #bbbbbb;
-  --border-color: #e0e0e0;
-  --bg-color: #ffffff;
+	--primary-color: #BEFF5C;
+	/* Bright lime green */
+	--text-dark: #111111;
+	--text-light: #666666;
+	--text-disabled: #bbbbbb;
+	--border-color: #e0e0e0;
+	--bg-color: #ffffff;
 }
 
 * {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-  -webkit-tap-highlight-color: transparent;
+	box-sizing: border-box;
+	margin: 0;
+	padding: 0;
+	-webkit-tap-highlight-color: transparent;
 }
 
 body {
-  font-family: 'Inter', -apple-system, sans-serif;
-  background-color: var(--bg-color);
-  color: var(--text-dark);
-  font-size: 14px;
-  line-height: 1.5;
+	font-family: 'Inter', -apple-system, sans-serif;
+	background-color: var(--bg-color);
+	color: var(--text-dark);
+	font-size: 14px;
+	line-height: 1.5;
 }
 
 #app {
-  max-width: 600px;
-  margin: 0 auto;
-  padding: 24px;
-  background: var(--bg-color);
-  min-height: 100vh;
+	max-width: 600px;
+	margin: 0 auto;
+	padding: 24px;
+	background: var(--bg-color);
+	min-height: 100vh;
 }
 
 /* Header */
 .app-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 32px;
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	margin-bottom: 32px;
 }
 
 .logo-text {
-  font-weight: 800;
-  font-style: italic;
-  font-size: 18px;
-  letter-spacing: -0.5px;
+	font-weight: 800;
+	font-style: italic;
+	font-size: 18px;
+	letter-spacing: -0.5px;
 }
 
 .settings-icon .material-icons-outlined {
-  font-size: 20px;
-  cursor: pointer;
+	font-size: 20px;
+	cursor: pointer;
 }
 
 /* Navigation */
 .top-nav {
-  display: flex;
-  justify-content: center;
-  gap: 8px;
-  margin-bottom: 32px;
-  font-weight: 500;
-  font-size: 14px;
+	display: flex;
+	justify-content: center;
+	gap: 8px;
+	margin-bottom: 32px;
+	font-weight: 500;
+	font-size: 14px;
 }
 
 .nav-link {
-  text-decoration: none;
-  color: var(--text-dark);
-  padding: 0 4px;
-  transition: background-color 0.2s;
+	text-decoration: none;
+	color: var(--text-dark);
+	padding: 0 4px;
+	transition: background-color 0.2s;
 }
 
 .nav-link.active {
-  background-color: var(--primary-color);
-  color: var(--text-dark);
+	background-color: var(--primary-color);
+	color: var(--text-dark);
 }
 
 .sep {
-  color: var(--text-dark);
+	color: var(--text-dark);
 }
 
 /* Highlight text */
 .highlight {
-  background-color: var(--primary-color);
-  padding: 0 4px;
-  font-weight: 600;
+	background-color: var(--primary-color);
+	padding: 0 4px;
+	font-weight: 600;
 }
 
 .date-header {
-  text-align: center;
-  margin-bottom: 24px;
+	text-align: center;
+	margin-bottom: 24px;
 }
 
 /* Lists and Add Rows */
 .add-section {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  border-bottom: 1px solid var(--border-color);
-  padding-bottom: 4px;
-  margin-bottom: 16px;
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	border-bottom: 1px solid var(--border-color);
+	padding-bottom: 4px;
+	margin-bottom: 16px;
 }
 
 .add-tags {
-  font-size: 14px;
+	font-size: 14px;
 }
 
 .btn-add {
-  background-color: var(--primary-color);
-  border: none;
-  width: 20px;
-  height: 20px;
-  font-size: 16px;
-  font-weight: 600;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+	background-color: var(--primary-color);
+	border: none;
+	width: 20px;
+	height: 20px;
+	font-size: 16px;
+	font-weight: 600;
+	cursor: pointer;
+	display: flex;
+	align-items: center;
+	justify-content: center;
 }
 
 .btn-add-sm {
-  background-color: #e6e6e6;
-  border: none;
-  width: 18px;
-  height: 18px;
-  font-size: 14px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-left: 8px;
+	background-color: #e6e6e6;
+	border: none;
+	width: 18px;
+	height: 18px;
+	font-size: 14px;
+	cursor: pointer;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	margin-left: 8px;
 }
 
 .list-container {
-  display: flex;
-  flex-direction: column;
+	display: flex;
+	flex-direction: column;
 }
 
 .list-item {
-  padding: 10px 0;
-  border-bottom: 1px solid var(--border-color);
-  cursor: pointer;
-  font-size: 14px;
+	padding: 10px 0;
+	border-bottom: 1px solid var(--border-color);
+	cursor: pointer;
+	font-size: 14px;
 }
+
 .list-item:last-child {
-  border-bottom: none;
+	border-bottom: none;
 }
-.list-item.empty-state {
-  text-align: center;
-  color: var(--text-dark);
-  border-bottom: 1px solid var(--border-color);
+
+.programs-view .list-item,
+.routines-view .list-item {
+	text-align: right;
+}
+
+.exercises-view .list-item,
+.home-view .list-item {
+	text-align: left;
+}
+
+.main-add-row {
+	display: flex;
+	justify-content: flex-end;
+	margin-bottom: 8px;
+}
+
+.empty-state-row {
+	text-align: center;
+	padding: 8px 0;
+	border-top: 1px solid var(--border-color);
+	border-bottom: 1px solid var(--border-color);
+	color: var(--text-dark);
+	font-size: 14px;
 }
 
 .list-header {
-  font-weight: 500;
-  margin-top: 24px;
-  margin-bottom: 4px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  border-bottom: 1px solid var(--text-dark);
-  padding-bottom: 4px;
-  font-size: 14px;
+	font-weight: 500;
+	margin-top: 24px;
+	margin-bottom: 4px;
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	border-bottom: 1px solid var(--text-dark);
+	padding-bottom: 4px;
+	font-size: 14px;
 }
+
 .list-header-title {
-  flex: 1;
+	flex: 1;
 }
 
 /* Exercise Detail View */
 .detail-header {
-  display: flex;
-  align-items: center;
-  margin-bottom: 24px;
-  position: relative;
+	display: flex;
+	align-items: center;
+	margin-bottom: 24px;
+	position: relative;
 }
 
 .back-btn {
-  font-size: 24px;
-  cursor: pointer;
-  font-weight: bold;
-  position: absolute;
-  left: 0;
+	font-size: 24px;
+	cursor: pointer;
+	font-weight: bold;
+	position: absolute;
+	left: 0;
 }
 
 .detail-title {
-  font-weight: 500;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-  gap: 8px;
+	font-weight: 500;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 100%;
+	gap: 8px;
 }
 
 .edit-icon {
-  font-size: 16px;
-  cursor: pointer;
+	font-size: 16px;
+	cursor: pointer;
 }
 
 .detail-nav {
-  display: flex;
-  justify-content: center;
-  gap: 8px;
-  margin-bottom: 32px;
-  font-weight: 500;
-  font-size: 14px;
+	display: flex;
+	justify-content: center;
+	gap: 8px;
+	margin-bottom: 32px;
+	font-weight: 500;
+	font-size: 14px;
 }
+
 .d-nav-link {
-  text-decoration: none;
-  color: var(--text-dark);
-  padding: 0 4px;
+	text-decoration: none;
+	color: var(--text-dark);
+	padding: 0 4px;
 }
+
 .d-nav-link.active {
-  background-color: var(--primary-color);
+	background-color: var(--primary-color);
 }
 
 .log-input-section {
-  margin-bottom: 16px;
+	margin-bottom: 16px;
 }
 
 .input-row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 16px;
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	margin-bottom: 16px;
 }
 
 .input-label {
-  font-size: 14px;
+	font-size: 14px;
 }
 
 .val-input {
-  border: none;
-  border-bottom: 1px solid var(--border-color);
-  width: 50px;
-  padding: 2px;
-  text-align: center;
-  font-family: inherit;
-  font-size: 14px;
+	border: none;
+	border-bottom: 1px solid var(--border-color);
+	width: 50px;
+	padding: 2px;
+	text-align: center;
+	font-family: inherit;
+	font-size: 14px;
 }
+
 .val-input:focus {
-  outline: none;
-  border-bottom-color: var(--text-dark);
+	outline: none;
+	border-bottom-color: var(--text-dark);
 }
 
 .unit {
-  color: var(--text-dark);
-  font-size: 14px;
+	color: var(--text-dark);
+	font-size: 14px;
 }
 
 .add-tag-inline {
-  margin-left: auto;
-  color: var(--text-dark);
-  font-size: 12px;
+	margin-left: auto;
+	color: var(--text-dark);
+	font-size: 12px;
 }
 
 .btn-large-add {
-  width: 100%;
-  background-color: var(--primary-color);
-  border: none;
-  height: 28px;
-  font-size: 20px;
-  font-weight: 600;
-  cursor: pointer;
-  margin-bottom: 24px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+	width: 100%;
+	background-color: var(--primary-color);
+	border: none;
+	height: 28px;
+	font-size: 20px;
+	font-weight: 600;
+	cursor: pointer;
+	margin-bottom: 24px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
 }
 
 /* History */
 .history-list {
-  font-size: 13px;
+	font-size: 13px;
 }
 
 .history-day {
-  margin-bottom: 16px;
+	margin-bottom: 16px;
 }
 
 .day-header {
-  display: flex;
-  justify-content: space-between;
-  border-bottom: 1px solid var(--text-dark);
-  padding-bottom: 2px;
-  margin-bottom: 4px;
-  font-weight: 600;
+	display: flex;
+	justify-content: space-between;
+	border-bottom: 1px solid var(--text-dark);
+	padding-bottom: 2px;
+	margin-bottom: 4px;
+	font-weight: 600;
 }
 
 .set-row {
-  display: flex;
-  align-items: center;
-  padding: 6px 0;
-  border-bottom: 1px solid var(--border-color);
+	display: flex;
+	align-items: center;
+	padding: 6px 0;
+	border-bottom: 1px solid var(--border-color);
 }
 
 .set-num {
-  width: 24px;
-  color: var(--text-dark);
+	width: 24px;
+	color: var(--text-dark);
 }
 
 .set-val {
-  width: 80px;
+	width: 80px;
 }
 
 .set-reps {
-  flex: 1;
+	flex: 1;
 }
 
 .set-rm {
-  color: var(--text-light);
-  text-align: right;
+	color: var(--text-light);
+	text-align: right;
 }
+
 .set-rm.disabled {
-  color: var(--text-disabled);
+	color: var(--text-disabled);
 }
 
 .set-tag {
-  margin-left: 8px;
+	margin-left: 8px;
 }
 
 /* Edit View */
 .edit-subtitle {
-  text-align: center;
-  margin-bottom: 32px;
-  font-size: 14px;
+	text-align: center;
+	margin-bottom: 32px;
+	font-size: 14px;
 }
 
 .edit-options {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  margin-bottom: 32px;
-  padding: 0 40px;
+	display: flex;
+	flex-direction: column;
+	gap: 16px;
+	margin-bottom: 32px;
+	padding: 0 40px;
 }
+
 .edit-row {
-  display: flex;
-  justify-content: space-between;
+	display: flex;
+	justify-content: space-between;
 }
+
 .custom-checkbox {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  width: 45%;
-  cursor: pointer;
-  font-size: 14px;
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	width: 45%;
+	cursor: pointer;
+	font-size: 14px;
 }
+
 .custom-checkbox input {
-  display: none;
+	display: none;
 }
+
 .custom-checkbox .checkmark {
-  font-size: 20px;
+	font-size: 20px;
 }
