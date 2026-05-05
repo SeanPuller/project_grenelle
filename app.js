@@ -102,6 +102,12 @@ document.addEventListener('DOMContentLoaded', () => {
       return Array.from(tags).sort();
   }
 
+  function getSetTags(logEntry) {
+      if (logEntry.tags && Array.isArray(logEntry.tags)) return logEntry.tags;
+      if (logEntry.tag) return logEntry.tag.split(/[\s,]+/).filter(t => t);
+      return [];
+  }
+
   function saveData() {
       localStorage.setItem('grenelle_fitness_data', JSON.stringify(data, null, 2));
   }
@@ -993,8 +999,10 @@ document.addEventListener('DOMContentLoaded', () => {
       historyList.innerHTML = '';
       if (exObj.logs && exObj.logs.length > 0) {
           const grouped = {};
-          exObj.logs.forEach(log => {
+          const logIndexMap = {};
+          exObj.logs.forEach((log, globalIdx) => {
               if (!grouped[log.date]) grouped[log.date] = [];
+              logIndexMap[log.date + '_' + grouped[log.date].length] = globalIdx;
               grouped[log.date].push(log);
           });
           
@@ -1003,14 +1011,29 @@ document.addEventListener('DOMContentLoaded', () => {
               const dayDiv = document.createElement('div');
               dayDiv.className = 'history-day';
               
+              // Compute common tags for this day
+              const daySets = grouped[dateStr];
+              let commonTags = [];
+              if (daySets.length > 0) {
+                  const firstTags = getSetTags(daySets[0]);
+                  commonTags = firstTags.filter(tag =>
+                      daySets.every(s => getSetTags(s).includes(tag))
+                  );
+              }
+
               const header = document.createElement('div');
               header.className = 'day-header';
               const todayStr = new Date().toLocaleDateString('en-GB').replace(/\//g, '-');
-              header.innerHTML = `<span>${dateStr === todayStr ? 'today' : dateStr}</span>`;
+              let headerText = dateStr === todayStr ? 'today' : dateStr;
+              if (commonTags.length > 0) {
+                  headerText += '  ' + commonTags.map(t => `#${t}`).join(' ');
+              }
+              header.innerHTML = `<span>${headerText}</span>`;
               dayDiv.appendChild(header);
 
               let workSetCount = 0;
-              grouped[dateStr].forEach(set => {
+              grouped[dateStr].forEach((set, localIdx) => {
+                  const globalIdx = logIndexMap[dateStr + '_' + localIdx];
                   const setType = set.type || 's';
                   let setLabel;
                   if (setType === 'w') {
@@ -1024,6 +1047,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                   const setRow = document.createElement('div');
                   setRow.className = 'set-row';
+                  setRow.style.cursor = 'pointer';
 
                   const numSpan = document.createElement('span');
                   numSpan.className = 'set-num';
@@ -1069,23 +1093,180 @@ document.addEventListener('DOMContentLoaded', () => {
                           metricsGrid.appendChild(rmSpan);
                       }
                   }
-                  let tagsToRender = [];
-                  if (set.tags && Array.isArray(set.tags)) {
-                      tagsToRender = set.tags;
-                  } else if (set.tag) {
-                      tagsToRender = set.tag.split(/[\s,]+/).filter(t=>t);
-                  }
+                  // Show only tags unique to this set (not the common day tags)
+                  const allSetTags = getSetTags(set);
+                  const uniqueTags = allSetTags.filter(t => !commonTags.includes(t));
                   
-                  if (tagsToRender.length > 0) {
+                  if (uniqueTags.length > 0) {
                       const tagDisplay = document.createElement('span');
                       tagDisplay.className = 'set-tag';
                       tagDisplay.style.color = 'var(--text-dark)';
                       tagDisplay.style.fontSize = '12px';
                       tagDisplay.style.fontWeight = '600';
-                      tagDisplay.textContent = tagsToRender.map(t => `#${t}`).join(' ');
+                      tagDisplay.textContent = uniqueTags.map(t => `#${t}`).join(' ');
                       metricsGrid.appendChild(tagDisplay);
                   }
                   setRow.appendChild(metricsGrid);
+
+                  // Click to edit
+                  setRow.addEventListener('click', () => {
+                      // Replace setRow contents with edit form
+                      setRow.innerHTML = '';
+                      setRow.style.cursor = 'default';
+                      setRow.style.flexWrap = 'wrap';
+                      setRow.style.gap = '8px';
+
+                      // Type toggle
+                      let editType = set.type || 's';
+                      const typeBtn = document.createElement('span');
+                      typeBtn.className = 'set-num';
+                      typeBtn.textContent = editType === 's' ? setLabel : editType.toUpperCase();
+                      typeBtn.style.cursor = 'pointer';
+                      typeBtn.style.userSelect = 'none';
+                      typeBtn.addEventListener('click', (e) => {
+                          e.stopPropagation();
+                          if (editType === 's') editType = 'w';
+                          else if (editType === 'w') editType = 'p';
+                          else editType = 's';
+                          typeBtn.textContent = editType;
+                      });
+                      setRow.appendChild(typeBtn);
+
+                      // Editable inputs for each data key
+                      const editInputs = {};
+                      const allKeys = [...new Set([...exObj.types, ...Object.keys(set.data)])];
+                      const inputsWrap = document.createElement('div');
+                      inputsWrap.style.display = 'flex';
+                      inputsWrap.style.gap = '8px';
+                      inputsWrap.style.alignItems = 'center';
+                      inputsWrap.style.flex = '1';
+                      inputsWrap.style.flexWrap = 'wrap';
+
+                      allKeys.forEach(k => {
+                          const inp = document.createElement('input');
+                          inp.type = 'number';
+                          inp.className = 'val-input';
+                          inp.value = set.data[k] || '';
+                          inp.style.width = '45px';
+                          const unit = document.createElement('span');
+                          unit.className = 'unit';
+                          unit.textContent = k;
+                          unit.style.fontSize = '12px';
+                          inputsWrap.appendChild(inp);
+                          inputsWrap.appendChild(unit);
+                          editInputs[k] = inp;
+                      });
+                      setRow.appendChild(inputsWrap);
+
+                      // Tag editor
+                      let editTagsList = [...getSetTags(set)];
+                      const tagEditSpan = document.createElement('div');
+                      tagEditSpan.style.width = '100%';
+                      tagEditSpan.style.fontSize = '12px';
+                      tagEditSpan.style.display = 'flex';
+                      tagEditSpan.style.flexWrap = 'wrap';
+                      tagEditSpan.style.gap = '4px';
+                      tagEditSpan.style.alignItems = 'center';
+
+                      const renderEditTags = () => {
+                          tagEditSpan.innerHTML = '';
+                          editTagsList.forEach(t => {
+                              const ts = document.createElement('span');
+                              ts.textContent = `#${t}`;
+                              ts.style.color = 'var(--text-dark)';
+                              ts.style.fontWeight = '600';
+                              ts.style.cursor = 'pointer';
+                              ts.addEventListener('click', (e) => {
+                                  e.stopPropagation();
+                                  editTagsList = editTagsList.filter(x => x !== t);
+                                  renderEditTags();
+                              });
+                              tagEditSpan.appendChild(ts);
+                          });
+                          const addTagBtn = document.createElement('span');
+                          addTagBtn.textContent = '<add tag>';
+                          addTagBtn.style.cursor = 'pointer';
+                          addTagBtn.style.fontSize = '12px';
+                          addTagBtn.addEventListener('click', (e) => {
+                              e.stopPropagation();
+                              const tagOptions = getAllTags().map(t => ({ label: `#${t}`, value: t }));
+                              openSelectionDialog('Select a tag', tagOptions, (selection) => {
+                                  let val = typeof selection === 'string' ? selection : selection.value;
+                                  if (val) {
+                                      val = val.replace(/^#/, '').trim();
+                                      if (!editTagsList.includes(val)) {
+                                          editTagsList.push(val);
+                                          renderEditTags();
+                                      }
+                                  }
+                              }, 'add new tag');
+                          });
+                          tagEditSpan.appendChild(addTagBtn);
+                      };
+                      renderEditTags();
+                      setRow.appendChild(tagEditSpan);
+
+                      // Action buttons
+                      const actionsWrap = document.createElement('div');
+                      actionsWrap.style.display = 'flex';
+                      actionsWrap.style.gap = '4px';
+
+                      const saveBtn = document.createElement('span');
+                      saveBtn.className = 'material-icons-outlined inline-btn inline-save';
+                      saveBtn.textContent = 'check';
+                      saveBtn.style.cursor = 'pointer';
+                      saveBtn.style.fontSize = '18px';
+                      saveBtn.addEventListener('click', (e) => {
+                          e.stopPropagation();
+                          const newData = {};
+                          allKeys.forEach(k => {
+                              if (editInputs[k].value) {
+                                  newData[k] = editInputs[k].value;
+                              }
+                          });
+                          exObj.logs[globalIdx].data = newData;
+                          exObj.logs[globalIdx].type = editType;
+                          if (editTagsList.length > 0) {
+                              exObj.logs[globalIdx].tags = editTagsList;
+                          } else {
+                              delete exObj.logs[globalIdx].tags;
+                              delete exObj.logs[globalIdx].tag;
+                          }
+                          saveData();
+                          renderView('exercise-detail');
+                      });
+
+                      const deleteBtn = document.createElement('span');
+                      deleteBtn.className = 'material-icons-outlined inline-btn inline-cancel';
+                      deleteBtn.textContent = 'delete';
+                      deleteBtn.style.cursor = 'pointer';
+                      deleteBtn.style.fontSize = '18px';
+                      deleteBtn.style.color = '#cc3333';
+                      deleteBtn.addEventListener('click', (e) => {
+                          e.stopPropagation();
+                          if (confirm('Delete this set?')) {
+                              exObj.logs.splice(globalIdx, 1);
+                              saveData();
+                              renderView('exercise-detail');
+                          }
+                      });
+
+                      const cancelBtn = document.createElement('span');
+                      cancelBtn.className = 'material-icons-outlined inline-btn';
+                      cancelBtn.textContent = 'close';
+                      cancelBtn.style.cursor = 'pointer';
+                      cancelBtn.style.fontSize = '18px';
+                      cancelBtn.addEventListener('click', (e) => {
+                          e.stopPropagation();
+                          renderView('exercise-detail');
+                      });
+
+                      actionsWrap.appendChild(saveBtn);
+                      actionsWrap.appendChild(deleteBtn);
+                      actionsWrap.appendChild(cancelBtn);
+                      setRow.appendChild(actionsWrap);
+                  });
+
                   dayDiv.appendChild(setRow);
               });
               
