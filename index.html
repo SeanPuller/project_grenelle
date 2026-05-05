@@ -133,36 +133,36 @@
 			<div class="edit-options">
 				<div class="edit-row">
 					<label class="custom-checkbox">
-						<input type="checkbox" checked>
+						<input type="checkbox" checked data-type="kg">
 						<span class="checkmark material-icons-outlined">check_box</span>
 						kg
 					</label>
 					<label class="custom-checkbox">
-						<input type="checkbox" checked>
+						<input type="checkbox" checked data-type="reps">
 						<span class="checkmark material-icons-outlined">check_box</span>
 						reps
 					</label>
 				</div>
 				<div class="edit-row">
 					<label class="custom-checkbox">
-						<input type="checkbox">
+						<input type="checkbox" data-type="km">
 						<span class="checkmark material-icons-outlined">check_box_outline_blank</span>
 						km
 					</label>
 					<label class="custom-checkbox">
-						<input type="checkbox">
+						<input type="checkbox" data-type="m">
 						<span class="checkmark material-icons-outlined">check_box_outline_blank</span>
 						m
 					</label>
 				</div>
 				<div class="edit-row">
 					<label class="custom-checkbox">
-						<input type="checkbox">
+						<input type="checkbox" data-type="laps">
 						<span class="checkmark material-icons-outlined">check_box_outline_blank</span>
 						laps
 					</label>
 					<label class="custom-checkbox">
-						<input type="checkbox">
+						<input type="checkbox" data-type="time">
 						<span class="checkmark material-icons-outlined">check_box_outline_blank</span>
 						time
 					</label>
@@ -172,6 +172,19 @@
 			<button class="btn-large-add">save</button>
 		</div>
 	</template>
+
+	<dialog id="selection-dialog">
+		<div id="sd-title" style="font-weight: 600; margin-bottom: 16px;">Select</div>
+		<div id="sd-list" class="list-container" style="max-height: 300px; overflow-y: auto; margin-bottom: 16px;"></div>
+		<div id="sd-new-container" style="display: none; margin-bottom: 16px;">
+			<input type="text" id="sd-input" class="inline-input" style="width: 100%" placeholder="Enter name...">
+		</div>
+		<div style="display: flex; justify-content: space-between;">
+			<button type="button" id="sd-cancel">cancel</button>
+			<button type="button" class="btn-dialog-add" id="sd-add-new-btn">add new</button>
+			<button type="button" class="btn-dialog-add" id="sd-save-btn" style="display: none;">save</button>
+		</div>
+	</dialog>
 
 	<script src="app.js"></script>
 </body>

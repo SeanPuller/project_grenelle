@@ -15,11 +15,120 @@ document.addEventListener('DOMContentLoaded', () => {
     exercises: []
   };
 
+  const sdDialog = document.getElementById('selection-dialog');
+  const sdTitle = document.getElementById('sd-title');
+  const sdList = document.getElementById('sd-list');
+  const sdNewContainer = document.getElementById('sd-new-container');
+  const sdInput = document.getElementById('sd-input');
+  const sdCancel = document.getElementById('sd-cancel');
+  const sdAddNewBtn = document.getElementById('sd-add-new-btn');
+  const sdSaveBtn = document.getElementById('sd-save-btn');
+  
+  let currentSelectionCallback = null;
+  
+  function openSelectionDialog(title, optionsList, onSelect) {
+      sdTitle.textContent = title;
+      currentSelectionCallback = onSelect;
+      
+      sdList.style.display = 'block';
+      sdNewContainer.style.display = 'none';
+      sdAddNewBtn.style.display = 'block';
+      sdSaveBtn.style.display = 'none';
+      sdInput.value = '';
+      
+      sdList.innerHTML = '';
+      if (optionsList.length === 0) {
+          sdList.innerHTML = '<div style="color: gray; font-size: 14px; text-align: center; padding: 12px;">No existing entries</div>';
+      } else {
+          const sortedOptions = [...optionsList].sort((a, b) => a.localeCompare(b));
+          sortedOptions.forEach(opt => {
+              const div = document.createElement('div');
+              div.className = 'list-item';
+              div.textContent = opt;
+              div.addEventListener('click', () => {
+                  sdDialog.close();
+                  if(currentSelectionCallback) currentSelectionCallback(opt);
+              });
+              sdList.appendChild(div);
+          });
+      }
+      
+      sdDialog.showModal();
+  }
+  
+  sdCancel.addEventListener('click', () => sdDialog.close());
+  
+  sdAddNewBtn.addEventListener('click', () => {
+      sdList.style.display = 'none';
+      sdAddNewBtn.style.display = 'none';
+      sdNewContainer.style.display = 'block';
+      sdSaveBtn.style.display = 'block';
+      sdInput.focus();
+  });
+  
+  sdSaveBtn.addEventListener('click', () => {
+      const val = sdInput.value.trim();
+      if (val) {
+          sdDialog.close();
+          if(currentSelectionCallback) currentSelectionCallback(val);
+      }
+  });
+
+  function renderInlineAdd(listContainer, onSave, onCancel) {
+      if (listContainer.querySelector('.inline-add-row')) return;
+      
+      const row = document.createElement('div');
+      row.className = 'list-item inline-add-row';
+      
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.className = 'inline-input';
+      input.placeholder = 'Name...';
+      
+      const actions = document.createElement('div');
+      actions.className = 'inline-actions';
+      
+      const saveBtn = document.createElement('span');
+      saveBtn.className = 'material-icons-outlined inline-btn inline-save';
+      saveBtn.textContent = 'check';
+      
+      const cancelBtn = document.createElement('span');
+      cancelBtn.className = 'material-icons-outlined inline-btn inline-cancel';
+      cancelBtn.textContent = 'close';
+      
+      actions.appendChild(saveBtn);
+      actions.appendChild(cancelBtn);
+      row.appendChild(input);
+      row.appendChild(actions);
+      
+      listContainer.prepend(row);
+      input.focus();
+      
+      saveBtn.addEventListener('click', () => {
+          const val = input.value.trim();
+          if (val) {
+              onSave(val);
+          } else {
+              onCancel();
+          }
+      });
+      
+      cancelBtn.addEventListener('click', () => onCancel());
+  }
+
+  function getExerciseObj(name) {
+      let ex = data.exercises.find(e => e.name === name);
+      if (!ex) {
+          ex = { name: name, types: ['kg', 'reps'], logs: [] };
+          data.exercises.push(ex);
+      }
+      return ex;
+  }
+
   function renderView(viewName) {
     const template = document.getElementById(`view-${viewName}`);
     if (!template) return;
 
-    // Update active nav link (top nav)
     navLinks.forEach(link => {
       if (link.dataset.target === viewName) {
         link.classList.add('active');
@@ -38,7 +147,6 @@ document.addEventListener('DOMContentLoaded', () => {
     mainContent.innerHTML = '';
     const content = template.content.cloneNode(true);
 
-    // Populate data
     if (viewName === 'home') {
       const listContainer = content.getElementById('home-list');
       const emptyState = content.getElementById('home-empty');
@@ -46,11 +154,15 @@ document.addEventListener('DOMContentLoaded', () => {
       const mainAddBtn = content.querySelector('.btn-add');
       if (mainAddBtn) {
         mainAddBtn.addEventListener('click', () => {
-          const name = prompt('Add routine/exercise to today:');
-          if (name && name.trim() !== '') {
-            data.home.items.push(name.trim());
+          emptyState.style.display = 'none';
+          renderInlineAdd(listContainer, (name) => {
+            data.home.items.push(name);
+            const allOptions = [...data.routines.map(r=>r.name), ...data.exercises.map(e=>e.name)];
+            if (!allOptions.includes(name)) {
+              getExerciseObj(name);
+            }
             renderView('home');
-          }
+          }, () => renderView('home'));
         });
       }
 
@@ -76,11 +188,11 @@ document.addEventListener('DOMContentLoaded', () => {
       const mainAddBtn = content.querySelector('.main-add-row .btn-add');
       if (mainAddBtn) {
         mainAddBtn.addEventListener('click', () => {
-          const name = prompt('Add new program:');
-          if (name && name.trim() !== '') {
-            data.programs.push({ name: name.trim(), items: [] });
-            renderView('programs');
-          }
+          emptyState.style.display = 'none';
+          renderInlineAdd(listContainer, (name) => {
+             data.programs.push({ name: name, items: [] });
+             renderView('programs');
+          }, () => renderView('programs'));
         });
       }
 
@@ -93,11 +205,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
           const headerBtn = header.querySelector('.btn-add-sm');
           headerBtn.addEventListener('click', () => {
-            const name = prompt(`Add routine to program "${prog.name}":`);
-            if (name && name.trim() !== '') {
-              prog.items.push(name.trim());
+            openSelectionDialog(`Add routine to "${prog.name}"`, data.routines.map(r=>r.name), (name) => {
+              prog.items.push(name);
+              if (!data.routines.find(r => r.name === name)) {
+                 data.routines.push({ name: name, items: [] });
+              }
               renderView('programs');
-            }
+            });
           });
 
           prog.items.forEach(item => {
@@ -118,11 +232,13 @@ document.addEventListener('DOMContentLoaded', () => {
       const mainAddBtn = content.querySelector('.main-add-row .btn-add');
       if (mainAddBtn) {
         mainAddBtn.addEventListener('click', () => {
-          const name = prompt('Add new routine:');
-          if (name && name.trim() !== '') {
-            data.routines.push({ name: name.trim(), items: [] });
-            renderView('routines');
-          }
+          emptyState.style.display = 'none';
+          renderInlineAdd(listContainer, (name) => {
+             if (!data.routines.find(r => r.name === name)) {
+               data.routines.push({ name: name, items: [] });
+             }
+             renderView('routines');
+          }, () => renderView('routines'));
         });
       }
 
@@ -135,11 +251,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
           const headerBtn = header.querySelector('.btn-add-sm');
           headerBtn.addEventListener('click', () => {
-            const name = prompt(`Add exercise to routine "${rout.name}":`);
-            if (name && name.trim() !== '') {
-              rout.items.push(name.trim());
+            openSelectionDialog(`Add exercise to "${rout.name}"`, data.exercises.map(e=>e.name), (name) => {
+              rout.items.push(name);
+              if (!data.exercises.find(e=>e.name === name)) {
+                getExerciseObj(name);
+              }
               renderView('routines');
-            }
+            });
           });
 
           rout.items.forEach(item => {
@@ -160,21 +278,24 @@ document.addEventListener('DOMContentLoaded', () => {
       const mainAddBtn = content.querySelector('.main-add-row .btn-add');
       if (mainAddBtn) {
         mainAddBtn.addEventListener('click', () => {
-          const name = prompt('Add new exercise:');
-          if (name && name.trim() !== '') {
-            data.exercises.push(name.trim());
-            renderView('exercises');
-          }
+          emptyState.style.display = 'none';
+          renderInlineAdd(listContainer, (name) => {
+             if (!data.exercises.find(e=>e.name === name)) {
+               getExerciseObj(name);
+             }
+             renderView('exercises');
+          }, () => renderView('exercises'));
         });
       }
 
       if (data.exercises.length > 0) {
-        data.exercises.forEach(item => {
+        const sorted = [...data.exercises].sort((a,b) => a.name.localeCompare(b.name));
+        sorted.forEach(item => {
           const div = document.createElement('div');
           div.className = 'list-item';
-          div.textContent = item;
+          div.textContent = item.name;
           div.addEventListener('click', () => {
-              currentExercise = item;
+              currentExercise = item.name;
               renderView('exercise-detail');
           });
           listContainer.appendChild(div);
@@ -194,6 +315,99 @@ document.addEventListener('DOMContentLoaded', () => {
       if (editIcon) {
           editIcon.addEventListener('click', () => renderView('exercise-edit'));
       }
+
+      const exObj = getExerciseObj(currentExercise);
+      const logSection = content.querySelector('.log-input-section');
+      logSection.innerHTML = '';
+      
+      if (exObj.types.length > 0) {
+          const inputRow = document.createElement('div');
+          inputRow.className = 'input-row';
+          
+          const sLabel = document.createElement('span');
+          sLabel.className = 'input-label';
+          sLabel.textContent = 's';
+          inputRow.appendChild(sLabel);
+          
+          exObj.types.forEach(t => {
+              const inp = document.createElement('input');
+              inp.type = 'number';
+              inp.className = 'val-input dyn-val';
+              inp.dataset.type = t;
+              
+              const unit = document.createElement('span');
+              unit.className = 'unit';
+              unit.textContent = t;
+              
+              inputRow.appendChild(inp);
+              inputRow.appendChild(unit);
+          });
+          
+          const tagSpan = document.createElement('span');
+          tagSpan.className = 'add-tag-inline';
+          tagSpan.textContent = '<add tag>';
+          inputRow.appendChild(tagSpan);
+          
+          logSection.appendChild(inputRow);
+          
+          const addBtn = document.createElement('button');
+          addBtn.className = 'btn-large-add';
+          addBtn.textContent = '+';
+          addBtn.addEventListener('click', () => {
+             const newLog = {};
+             let hasData = false;
+             inputRow.querySelectorAll('.dyn-val').forEach(inp => {
+                 if(inp.value) {
+                     newLog[inp.dataset.type] = inp.value;
+                     hasData = true;
+                 }
+             });
+             if (hasData) {
+                 const today = new Date().toLocaleDateString('en-GB').replace(/\//g, '-');
+                 exObj.logs.push({ date: today, data: newLog });
+                 renderView('exercise-detail');
+             }
+          });
+          logSection.appendChild(addBtn);
+      }
+
+      const historyList = content.querySelector('.history-list');
+      historyList.innerHTML = '';
+      if (exObj.logs && exObj.logs.length > 0) {
+          const grouped = {};
+          exObj.logs.forEach(log => {
+              if(!grouped[log.date]) grouped[log.date] = [];
+              grouped[log.date].push({ ...log, index: grouped[log.date].length + 1 });
+          });
+          
+          const sortedDates = Object.keys(grouped).reverse();
+          sortedDates.forEach(dateStr => {
+              const dayDiv = document.createElement('div');
+              dayDiv.className = 'history-day';
+              
+              const header = document.createElement('div');
+              header.className = 'day-header';
+              const todayStr = new Date().toLocaleDateString('en-GB').replace(/\//g, '-');
+              header.innerHTML = `<span>${dateStr === todayStr ? 'today' : dateStr}</span>`;
+              dayDiv.appendChild(header);
+              
+              grouped[dateStr].forEach(set => {
+                  const setRow = document.createElement('div');
+                  setRow.className = 'set-row';
+                  
+                  let html = `<span class="set-num">${set.index}</span>`;
+                  Object.keys(set.data).forEach(k => {
+                      html += `<span style="margin-right: 12px;">${set.data[k]} ${k}</span>`;
+                  });
+                  
+                  setRow.innerHTML = html;
+                  dayDiv.appendChild(setRow);
+              });
+              
+              historyList.appendChild(dayDiv);
+          });
+      }
+
     } else if (viewName === 'exercise-edit') {
       const titleSpan = content.querySelector('.ex-name');
       if (titleSpan) titleSpan.textContent = currentExercise;
@@ -201,14 +415,21 @@ document.addEventListener('DOMContentLoaded', () => {
       const backBtn = content.querySelector('.back-btn');
       backBtn.addEventListener('click', () => renderView('exercise-detail'));
       
-      const saveBtn = content.querySelector('.btn-large-add');
-      saveBtn.addEventListener('click', () => renderView('exercise-detail'));
-      
-      // Handle custom checkboxes toggling
+      const exObj = getExerciseObj(currentExercise);
+
       const checkboxes = content.querySelectorAll('.custom-checkbox input');
       checkboxes.forEach(cb => {
+          const type = cb.dataset.type;
+          const icon = cb.nextElementSibling;
+          if (exObj.types.includes(type)) {
+              cb.checked = true;
+              icon.textContent = 'check_box';
+          } else {
+              cb.checked = false;
+              icon.textContent = 'check_box_outline_blank';
+          }
+
           cb.addEventListener('change', (e) => {
-              const icon = e.target.nextElementSibling;
               if (e.target.checked) {
                   icon.textContent = 'check_box';
               } else {
@@ -216,12 +437,23 @@ document.addEventListener('DOMContentLoaded', () => {
               }
           });
       });
+
+      const saveBtn = content.querySelector('.btn-large-add');
+      saveBtn.addEventListener('click', () => {
+          const newTypes = [];
+          content.querySelectorAll('.custom-checkbox input').forEach(cb => {
+              if (cb.checked) {
+                  newTypes.push(cb.dataset.type);
+              }
+          });
+          exObj.types = newTypes;
+          renderView('exercise-detail');
+      });
     }
 
     mainContent.appendChild(content);
   }
 
-  // Setup nav listeners
   navLinks.forEach(link => {
     link.addEventListener('click', (e) => {
       e.preventDefault();
@@ -229,6 +461,5 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-  // Initial render
   renderView('home');
 });

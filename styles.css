@@ -381,3 +381,75 @@ body {
 .custom-checkbox .checkmark {
 	font-size: 20px;
 }
+
+/* Inline Add */
+.inline-add-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: default;
+  padding: 10px 0;
+}
+.inline-input {
+  flex: 1;
+  border: none;
+  border-bottom: 1px solid var(--border-color);
+  font-family: inherit;
+  font-size: 14px;
+  padding: 4px 0;
+  background: transparent;
+  color: var(--text-dark);
+}
+.inline-input:focus {
+  outline: none;
+  border-bottom-color: var(--text-dark);
+}
+.inline-actions {
+  display: flex;
+  gap: 4px;
+}
+.inline-btn {
+  font-size: 18px;
+  cursor: pointer;
+  padding: 4px;
+  background: #e6e6e6;
+  border-radius: 4px;
+}
+.inline-save {
+  background: var(--primary-color);
+}
+
+/* Dialog */
+#selection-dialog {
+	border: 1px solid var(--border-color);
+	border-radius: 0;
+	padding: 24px;
+	width: 90%;
+	max-width: 400px;
+	margin: auto;
+	background: var(--bg-color);
+	color: var(--text-dark);
+}
+
+#selection-dialog::backdrop {
+	background: rgba(0, 0, 0, 0.5);
+}
+
+#sd-cancel {
+	background: none;
+	border: none;
+	font-family: inherit;
+	font-size: 14px;
+	cursor: pointer;
+	padding: 8px 16px;
+}
+
+.btn-dialog-add {
+	background-color: var(--primary-color);
+	border: none;
+	font-family: inherit;
+	font-size: 14px;
+	font-weight: 600;
+	cursor: pointer;
+	padding: 8px 16px;
+}
