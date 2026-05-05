@@ -1,3 +1,4 @@
+const APP_VERSION = '0.25';
 document.addEventListener('DOMContentLoaded', () => {
   const mainContent = document.getElementById('main-content');
   const navLinks = document.querySelectorAll('.nav-link');
@@ -1319,6 +1320,11 @@ document.addEventListener('DOMContentLoaded', () => {
       const backBtn = content.querySelector('.back-btn');
       if (backBtn) {
           backBtn.addEventListener('click', () => renderView('home'));
+      }
+
+      const versionEl = content.querySelector('#app-version');
+      if (versionEl) {
+          versionEl.textContent = `v${APP_VERSION}`;
       }
       
       const debugInput = content.querySelector('#debug-date-input');
