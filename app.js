@@ -1,4 +1,4 @@
-const APP_VERSION = '0.31';
+const APP_VERSION = '0.32';
 document.addEventListener('DOMContentLoaded', () => {
   const mainContent = document.getElementById('main-content');
   const navLinks = document.querySelectorAll('.nav-link');
@@ -14,7 +14,11 @@ document.addEventListener('DOMContentLoaded', () => {
       textDark: '#111111',
       textLight: '#666666',
       textDisabled: '#bbbbbb',
-      border: '#e0e0e0'
+      border: '#e0e0e0',
+      btnSecondaryBg: '#e6e6e6',
+      btnRemoveColor: '#aaaaaa',
+      danger: '#dc3545',
+      notesLine: '#dddddd'
   };
 
   const DEFAULT_DATA = {
@@ -54,6 +58,10 @@ document.addEventListener('DOMContentLoaded', () => {
       document.documentElement.style.setProperty('--text-light', colors.textLight || DEFAULT_COLORS.textLight);
       document.documentElement.style.setProperty('--text-disabled', colors.textDisabled || DEFAULT_COLORS.textDisabled);
       document.documentElement.style.setProperty('--border-color', colors.border || DEFAULT_COLORS.border);
+      document.documentElement.style.setProperty('--btn-secondary-bg', colors.btnSecondaryBg || DEFAULT_COLORS.btnSecondaryBg);
+      document.documentElement.style.setProperty('--btn-remove-color', colors.btnRemoveColor || DEFAULT_COLORS.btnRemoveColor);
+      document.documentElement.style.setProperty('--danger-color', colors.danger || DEFAULT_COLORS.danger);
+      document.documentElement.style.setProperty('--notes-line-color', colors.notesLine || DEFAULT_COLORS.notesLine);
   }
 
   applyColors();
@@ -1608,7 +1616,7 @@ document.addEventListener('DOMContentLoaded', () => {
                       deleteBtn.textContent = 'delete';
                       deleteBtn.style.cursor = 'pointer';
                       deleteBtn.style.fontSize = '18px';
-                      deleteBtn.style.color = '#cc3333';
+                      deleteBtn.style.color = 'var(--danger-color)';
                       deleteBtn.addEventListener('click', (e) => {
                           e.stopPropagation();
                           if (confirm('Delete this set?')) {
@@ -1724,6 +1732,10 @@ document.addEventListener('DOMContentLoaded', () => {
       const colorTextLight = content.querySelector('#color-text-light');
       const colorTextDisabled = content.querySelector('#color-text-disabled');
       const colorBorder = content.querySelector('#color-border');
+      const colorBtnSecondary = content.querySelector('#color-btn-secondary');
+      const colorBtnRemove = content.querySelector('#color-btn-remove');
+      const colorDanger = content.querySelector('#color-danger');
+      const colorNotesLine = content.querySelector('#color-notes-line');
 
       if (colorPrimary && colorBg && colorTextDark) {
           const currentColors = (data.settings && data.settings.colors) ? data.settings.colors : DEFAULT_COLORS;
@@ -1733,6 +1745,10 @@ document.addEventListener('DOMContentLoaded', () => {
           colorTextLight.value = currentColors.textLight || DEFAULT_COLORS.textLight;
           colorTextDisabled.value = currentColors.textDisabled || DEFAULT_COLORS.textDisabled;
           colorBorder.value = currentColors.border || DEFAULT_COLORS.border;
+          colorBtnSecondary.value = currentColors.btnSecondaryBg || DEFAULT_COLORS.btnSecondaryBg;
+          colorBtnRemove.value = currentColors.btnRemoveColor || DEFAULT_COLORS.btnRemoveColor;
+          colorDanger.value = currentColors.danger || DEFAULT_COLORS.danger;
+          colorNotesLine.value = currentColors.notesLine || DEFAULT_COLORS.notesLine;
 
           const updateColor = () => {
               if (!data.settings) data.settings = {};
@@ -1743,6 +1759,10 @@ document.addEventListener('DOMContentLoaded', () => {
               data.settings.colors.textLight = colorTextLight.value;
               data.settings.colors.textDisabled = colorTextDisabled.value;
               data.settings.colors.border = colorBorder.value;
+              data.settings.colors.btnSecondaryBg = colorBtnSecondary.value;
+              data.settings.colors.btnRemoveColor = colorBtnRemove.value;
+              data.settings.colors.danger = colorDanger.value;
+              data.settings.colors.notesLine = colorNotesLine.value;
               applyColors();
               saveData();
           };
@@ -1753,6 +1773,10 @@ document.addEventListener('DOMContentLoaded', () => {
           colorTextLight.addEventListener('input', updateColor);
           colorTextDisabled.addEventListener('input', updateColor);
           colorBorder.addEventListener('input', updateColor);
+          colorBtnSecondary.addEventListener('input', updateColor);
+          colorBtnRemove.addEventListener('input', updateColor);
+          colorDanger.addEventListener('input', updateColor);
+          colorNotesLine.addEventListener('input', updateColor);
       }
 
       const resetBtn = content.querySelector('#btn-reset-colors');
