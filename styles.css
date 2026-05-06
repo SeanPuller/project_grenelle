@@ -127,7 +127,7 @@ body {
 }
 
 .btn-add-sm {
-	background-color: var(--btn-secondary-bg);
+	background-color: var(--primary-color);
 	border: none;
 	width: 18px;
 	height: 18px;
