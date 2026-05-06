@@ -1,4 +1,4 @@
-const APP_VERSION = '0.41';
+const APP_VERSION = '0.42';
 document.addEventListener('DOMContentLoaded', () => {
 	const mainContent = document.getElementById('main-content');
 	const navLinks = document.querySelectorAll('.nav-link');
@@ -81,7 +81,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 	const DEFAULT_DATA = {
 		version: 1,
-		settings: { debugDate: '', showHomeLogs: true, oneRMFormula: 'epley', customTypes: [], colors: { ...DEFAULT_COLORS } },
+		settings: { debugDate: '', showHomeLogs: true, oneRMFormula: 'epley', customTypes: [], hueRotation: 0, colors: { ...DEFAULT_COLORS } },
 		home: {
 			history: {}
 		},
@@ -102,6 +102,7 @@ document.addEventListener('DOMContentLoaded', () => {
 					showHomeLogs: true,
 					oneRMFormula: 'epley',
 					customTypes: [],
+					hueRotation: 0,
 					colors: { ...DEFAULT_COLORS },
 					...(parsed.settings || {})
 				},
