@@ -1,4 +1,4 @@
-const APP_VERSION = '0.43';
+const APP_VERSION = '0.44';
 document.addEventListener('DOMContentLoaded', () => {
 	const mainContent = document.getElementById('main-content');
 	const navLinks = document.querySelectorAll('.nav-link');
