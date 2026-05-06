@@ -1,4 +1,4 @@
-const APP_VERSION = '0.35';
+const APP_VERSION = '0.36';
 document.addEventListener('DOMContentLoaded', () => {
   const mainContent = document.getElementById('main-content');
   const navLinks = document.querySelectorAll('.nav-link');
@@ -23,7 +23,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const DEFAULT_DATA = {
     version: 1,
-    settings: { debugDate: '', showHomeLogs: true, customTypes: [], colors: { ...DEFAULT_COLORS } },
+    settings: { debugDate: '', showHomeLogs: true, oneRMFormula: 'epley', customTypes: [], colors: { ...DEFAULT_COLORS } },
     home: {
       history: {}
     },
@@ -42,6 +42,7 @@ document.addEventListener('DOMContentLoaded', () => {
               settings: {
                   debugDate: '',
                   showHomeLogs: true,
+                  oneRMFormula: 'epley',
                   customTypes: [],
                   colors: { ...DEFAULT_COLORS },
                   ...(parsed.settings || {})
@@ -124,6 +125,19 @@ document.addEventListener('DOMContentLoaded', () => {
       return [];
   }
 
+  function calculateOneRM(w, r) {
+      if (r === 1) return w;
+      const formula = data.settings?.oneRMFormula || 'epley';
+      switch (formula) {
+          case 'brzycki': return w * 36 / (37 - r);
+          case 'lander': return (100 * w) / (101.3 - 2.67123 * r);
+          case 'lombardi': return w * Math.pow(r, 0.1);
+          case 'epley':
+          default:
+              return w * (1 + r / 30);
+      }
+  }
+
   function saveData() {
       localStorage.setItem('grenelle_fitness_data', JSON.stringify(data, null, 2));
   }
@@ -146,14 +160,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
   let currentSelectionCallback = null;
 
-  function openSelectionDialog(title, optionsList, onSelect, addNewText = 'add new') {
+  function openSelectionDialog(title, optionsList, onSelect, addNewText = 'add new', showAddNew = true) {
       sdTitle.textContent = title;
       currentSelectionCallback = onSelect;
       sdAddNewBtn.textContent = addNewText;
 
       sdList.style.display = 'block';
       sdNewContainer.style.display = 'none';
-      sdAddNewBtn.style.display = 'block';
+      sdAddNewBtn.style.display = showAddNew ? 'block' : 'none';
       sdSaveBtn.style.display = 'none';
       sdInput.value = '';
 
@@ -1260,7 +1274,7 @@ document.addEventListener('DOMContentLoaded', () => {
                           bestSetVolumeLog = log;
                       }
                       
-                      const oneRM = w * (1 + r / 30);
+                      const oneRM = calculateOneRM(w, r);
                       if (oneRM > best1RM) {
                           best1RM = oneRM;
                           best1RMLog = log;
@@ -1620,7 +1634,7 @@ document.addEventListener('DOMContentLoaded', () => {
                       const w = parseFloat(set.data.kg);
                       const r = parseInt(set.data.reps, 10);
                       if (!isNaN(w) && !isNaN(r) && r > 0) {
-                          const oneRm = Math.round(w * (1 + r / 30));
+                          const oneRm = Math.round(calculateOneRM(w, r));
                           const rmSpan = document.createElement('span');
                           rmSpan.className = 'set-rm';
                           rmSpan.textContent = `1rm ${oneRm}kg`;
@@ -1935,6 +1949,28 @@ document.addEventListener('DOMContentLoaded', () => {
               data.settings.showHomeLogs = !isOn();
               saveData();
               updateToggle();
+          });
+      }
+
+      const formulaBtn = content.querySelector('#btn-select-1rm-formula');
+      const formulaLabel = content.querySelector('#label-1rm-formula');
+      if (formulaBtn && formulaLabel) {
+          const currentFormula = data.settings?.oneRMFormula || 'epley';
+          formulaLabel.textContent = currentFormula;
+
+          formulaBtn.addEventListener('click', () => {
+              const options = [
+                  { label: 'Epley (Default)', value: 'epley' },
+                  { label: 'Brzycki', value: 'brzycki' },
+                  { label: 'Lander', value: 'lander' },
+                  { label: 'Lombardi', value: 'lombardi' }
+              ];
+              openSelectionDialog('Select 1RM Formula', options, (selection) => {
+                  if (!data.settings) data.settings = {};
+                  data.settings.oneRMFormula = selection;
+                  saveData();
+                  renderView('settings');
+              }, 'add new', false);
           });
       }
 
