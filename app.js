@@ -1,4 +1,4 @@
-const APP_VERSION = '0.38';
+const APP_VERSION = '0.39';
 document.addEventListener('DOMContentLoaded', () => {
 	const mainContent = document.getElementById('main-content');
 	const navLinks = document.querySelectorAll('.nav-link');
@@ -18,6 +18,65 @@ document.addEventListener('DOMContentLoaded', () => {
 		btnSecondaryBg: '#e6e6e6',
 		btnRemoveColor: '#aaaaaa',
 		danger: '#dc3545'
+	};
+
+	const COLOR_PRESETS = {
+		default: { ...DEFAULT_COLORS },
+		dark: {
+			primary: '#333333',
+			bg: '#121212',
+			textDark: '#ffffff',
+			textLight: '#aaaaaa',
+			textDisabled: '#555555',
+			border: '#2a2a2a',
+			btnSecondaryBg: '#222222',
+			btnRemoveColor: '#777777',
+			danger: '#cf6679'
+		},
+		brazil: {
+			primary: '#009b3a',
+			bg: '#ffcb00',
+			textDark: '#002776',
+			textLight: '#005d23',
+			textDisabled: '#7ba082',
+			border: '#007a2d',
+			btnSecondaryBg: '#e6b700',
+			btnRemoveColor: '#002776',
+			danger: '#ff0000'
+		},
+		france: {
+			primary: '#b31b26',
+			bg: '#002347',
+			textDark: '#ffffff',
+			textLight: '#a8b8cc',
+			textDisabled: '#5c738f',
+			border: '#003975',
+			btnSecondaryBg: '#003366',
+			btnRemoveColor: '#8aa2c2',
+			danger: '#ff5555'
+		},
+		monochromatic: {
+			primary: '#cccccc',
+			bg: '#ffffff',
+			textDark: '#000000',
+			textLight: '#666666',
+			textDisabled: '#aaaaaa',
+			border: '#bbbbbb',
+			btnSecondaryBg: '#eeeeee',
+			btnRemoveColor: '#777777',
+			danger: '#555555'
+		},
+		forest: {
+			primary: '#86c28f',
+			bg: '#f4f8f4',
+			textDark: '#0a2e15',
+			textLight: '#476652',
+			textDisabled: '#8ba895',
+			border: '#a3cfae',
+			btnSecondaryBg: '#d1e8d6',
+			btnRemoveColor: '#3e6b4c',
+			danger: '#cc3333'
+		}
 	};
 
 	const DEFAULT_DATA = {
@@ -1967,6 +2026,20 @@ document.addEventListener('DOMContentLoaded', () => {
 					openSelectionDialog('Select 1RM Formula', options, (selection) => {
 						if (!data.settings) data.settings = {};
 						data.settings.oneRMFormula = selection;
+						saveData();
+						renderView('settings');
+					}, 'add new', false);
+				});
+			}
+
+			const presetBtn = content.querySelector('#btn-select-preset');
+			if (presetBtn) {
+				presetBtn.addEventListener('click', () => {
+					const options = Object.keys(COLOR_PRESETS).map(key => ({ label: key, value: key }));
+					openSelectionDialog('Select Preset', options, (selection) => {
+						if (!data.settings) data.settings = {};
+						data.settings.colors = { ...COLOR_PRESETS[selection] };
+						applyColors();
 						saveData();
 						renderView('settings');
 					}, 'add new', false);

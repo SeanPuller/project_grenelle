@@ -21,8 +21,11 @@
 
 input[type="text"],
 input[type="search"],
+input[type="number"],
 textarea {
 	text-transform: lowercase;
+	background-color: var(--bg-color);
+	color: var(--text-dark);
 }
 
 body {
@@ -319,6 +322,8 @@ body {
 	text-align: center;
 	font-family: inherit;
 	font-size: 14px;
+	background-color: var(--bg-color);
+	color: var(--text-dark);
 }
 
 .val-input:focus {
