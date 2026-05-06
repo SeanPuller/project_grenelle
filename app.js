@@ -1,4 +1,4 @@
-const APP_VERSION = '0.39';
+const APP_VERSION = '0.40';
 document.addEventListener('DOMContentLoaded', () => {
 	const mainContent = document.getElementById('main-content');
 	const navLinks = document.querySelectorAll('.nav-link');
@@ -115,18 +115,59 @@ document.addEventListener('DOMContentLoaded', () => {
 		console.error('Failed to parse saved data', e);
 	}
 
+	function rotateHue(hex, degree) {
+		if (degree === 0) return hex;
+		// Hex to RGB
+		let r = parseInt(hex.slice(1, 3), 16) / 255;
+		let g = parseInt(hex.slice(3, 5), 16) / 255;
+		let b = parseInt(hex.slice(5, 7), 16) / 255;
+		let max = Math.max(r, g, b), min = Math.min(r, g, b);
+		let h, s, l = (max + min) / 2;
+		if (max === min) h = s = 0;
+		else {
+			let d = max - min;
+			s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+			switch (max) {
+				case r: h = (g - b) / d + (g < b ? 6 : 0); break;
+				case g: h = (b - r) / d + 2; break;
+				case b: h = (r - g) / d + 4; break;
+			}
+			h /= 6;
+		}
+		// Rotate Hue
+		h = (h * 360 + degree) % 360;
+		if (h < 0) h += 360;
+		// HSL to Hex
+		s *= 100; l *= 100;
+		l /= 100;
+		const a = s * Math.min(l, 1 - l) / 100;
+		const f = n => {
+			const k = (n + h / 30) % 12;
+			const color = l - a * Math.max(Math.min(k - 3, 9 - k, 1), -1);
+			return Math.round(255 * color).toString(16).padStart(2, '0');
+		};
+		return `#${f(0)}${f(8)}${f(4)}`;
+	}
+
 	function applyColors() {
 		const colors = (data.settings && data.settings.colors) ? data.settings.colors : DEFAULT_COLORS;
-		document.documentElement.style.setProperty('--primary-color', colors.primary || DEFAULT_COLORS.primary);
-		document.documentElement.style.setProperty('--bg-color', colors.bg || DEFAULT_COLORS.bg);
-		document.documentElement.style.setProperty('--text-dark', colors.textDark || DEFAULT_COLORS.textDark);
-		document.documentElement.style.setProperty('--text-light', colors.textLight || DEFAULT_COLORS.textLight);
-		document.documentElement.style.setProperty('--text-disabled', colors.textDisabled || DEFAULT_COLORS.textDisabled);
-		document.documentElement.style.setProperty('--border-color', colors.border || DEFAULT_COLORS.border);
-		document.documentElement.style.setProperty('--btn-secondary-bg', colors.btnSecondaryBg || DEFAULT_COLORS.btnSecondaryBg);
-		document.documentElement.style.setProperty('--btn-remove-color', colors.btnRemoveColor || DEFAULT_COLORS.btnRemoveColor);
-		document.documentElement.style.setProperty('--danger-color', colors.danger || DEFAULT_COLORS.danger);
-		document.documentElement.style.setProperty('--notes-line-color', colors.border || DEFAULT_COLORS.border);
+		const rotation = data.settings?.hueRotation || 0;
+
+		const setVar = (name, hex, rotate = true) => {
+			const finalHex = rotate ? rotateHue(hex, rotation) : hex;
+			document.documentElement.style.setProperty(name, finalHex);
+		};
+
+		setVar('--primary-color', colors.primary || DEFAULT_COLORS.primary);
+		setVar('--bg-color', colors.bg || DEFAULT_COLORS.bg);
+		setVar('--text-dark', colors.textDark || DEFAULT_COLORS.textDark);
+		setVar('--text-light', colors.textLight || DEFAULT_COLORS.textLight);
+		setVar('--text-disabled', colors.textDisabled || DEFAULT_COLORS.textDisabled);
+		setVar('--border-color', colors.border || DEFAULT_COLORS.border);
+		setVar('--btn-secondary-bg', colors.btnSecondaryBg || DEFAULT_COLORS.btnSecondaryBg);
+		setVar('--btn-remove-color', colors.btnRemoveColor || DEFAULT_COLORS.btnRemoveColor);
+		setVar('--danger-color', colors.danger || DEFAULT_COLORS.danger, false); // No rotation for danger
+		setVar('--notes-line-color', colors.border || DEFAULT_COLORS.border);
 	}
 
 	applyColors();
@@ -2046,6 +2087,26 @@ document.addEventListener('DOMContentLoaded', () => {
 				});
 			}
 
+			const hueSlider = content.querySelector('#hue-slider');
+			const hueValue = content.querySelector('#hue-value');
+			if (hueSlider && hueValue) {
+				const currentHue = data.settings?.hueRotation || 0;
+				hueSlider.value = currentHue;
+				hueValue.textContent = `${currentHue}°`;
+
+				hueSlider.addEventListener('input', (e) => {
+					const val = e.target.value;
+					hueValue.textContent = `${val}°`;
+					if (!data.settings) data.settings = {};
+					data.settings.hueRotation = parseInt(val, 10);
+					applyColors();
+				});
+
+				hueSlider.addEventListener('change', () => {
+					saveData();
+				});
+			}
+
 			const debugInput = content.querySelector('#debug-date-input');
 			if (debugInput) {
 				debugInput.value = data.settings?.debugDate || '';
@@ -2068,28 +2129,32 @@ document.addEventListener('DOMContentLoaded', () => {
 
 			if (colorPrimary && colorBg && colorTextDark) {
 				const currentColors = (data.settings && data.settings.colors) ? data.settings.colors : DEFAULT_COLORS;
-				colorPrimary.value = currentColors.primary || DEFAULT_COLORS.primary;
-				colorBg.value = currentColors.bg || DEFAULT_COLORS.bg;
-				colorTextDark.value = currentColors.textDark || DEFAULT_COLORS.textDark;
-				colorTextLight.value = currentColors.textLight || DEFAULT_COLORS.textLight;
-				colorTextDisabled.value = currentColors.textDisabled || DEFAULT_COLORS.textDisabled;
-				colorBorder.value = currentColors.border || DEFAULT_COLORS.border;
-				colorBtnSecondary.value = currentColors.btnSecondaryBg || DEFAULT_COLORS.btnSecondaryBg;
-				colorBtnRemove.value = currentColors.btnRemoveColor || DEFAULT_COLORS.btnRemoveColor;
-				colorDanger.value = currentColors.danger || DEFAULT_COLORS.danger;
+				const rotation = data.settings?.hueRotation || 0;
+				colorPrimary.value = rotateHue(currentColors.primary || DEFAULT_COLORS.primary, rotation);
+				colorBg.value = rotateHue(currentColors.bg || DEFAULT_COLORS.bg, rotation);
+				colorTextDark.value = rotateHue(currentColors.textDark || DEFAULT_COLORS.textDark, rotation);
+				colorTextLight.value = rotateHue(currentColors.textLight || DEFAULT_COLORS.textLight, rotation);
+				colorTextDisabled.value = rotateHue(currentColors.textDisabled || DEFAULT_COLORS.textDisabled, rotation);
+				colorBorder.value = rotateHue(currentColors.border || DEFAULT_COLORS.border, rotation);
+				colorBtnSecondary.value = rotateHue(currentColors.btnSecondaryBg || DEFAULT_COLORS.btnSecondaryBg, rotation);
+				colorBtnRemove.value = rotateHue(currentColors.btnRemoveColor || DEFAULT_COLORS.btnRemoveColor, rotation);
+				colorDanger.value = currentColors.danger || DEFAULT_COLORS.danger; // Danger never rotates
 
 				const updateColor = () => {
 					if (!data.settings) data.settings = {};
 					if (!data.settings.colors) data.settings.colors = {};
-					data.settings.colors.primary = colorPrimary.value;
-					data.settings.colors.bg = colorBg.value;
-					data.settings.colors.textDark = colorTextDark.value;
-					data.settings.colors.textLight = colorTextLight.value;
-					data.settings.colors.textDisabled = colorTextDisabled.value;
-					data.settings.colors.border = colorBorder.value;
-					data.settings.colors.btnSecondaryBg = colorBtnSecondary.value;
-					data.settings.colors.btnRemoveColor = colorBtnRemove.value;
-					data.settings.colors.danger = colorDanger.value;
+					const rotation = data.settings?.hueRotation || 0;
+					const unRotate = (hex) => rotateHue(hex, -rotation);
+
+					data.settings.colors.primary = unRotate(colorPrimary.value);
+					data.settings.colors.bg = unRotate(colorBg.value);
+					data.settings.colors.textDark = unRotate(colorTextDark.value);
+					data.settings.colors.textLight = unRotate(colorTextLight.value);
+					data.settings.colors.textDisabled = unRotate(colorTextDisabled.value);
+					data.settings.colors.border = unRotate(colorBorder.value);
+					data.settings.colors.btnSecondaryBg = unRotate(colorBtnSecondary.value);
+					data.settings.colors.btnRemoveColor = unRotate(colorBtnRemove.value);
+					data.settings.colors.danger = colorDanger.value; // No rotation for danger
 					applyColors();
 					saveData();
 				};
