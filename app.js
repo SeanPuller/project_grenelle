@@ -1,4 +1,4 @@
-const APP_VERSION = '0.33';
+const APP_VERSION = '0.34';
 document.addEventListener('DOMContentLoaded', () => {
   const mainContent = document.getElementById('main-content');
   const navLinks = document.querySelectorAll('.nav-link');
@@ -23,7 +23,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const DEFAULT_DATA = {
     version: 1,
-    settings: { debugDate: '', showHomeLogs: true, colors: { ...DEFAULT_COLORS } },
+    settings: { debugDate: '', showHomeLogs: true, customTypes: [], colors: { ...DEFAULT_COLORS } },
     home: {
       history: {}
     },
@@ -39,7 +39,13 @@ document.addEventListener('DOMContentLoaded', () => {
           const parsed = JSON.parse(saved);
           data = {
               version: parsed.version || 1,
-              settings: parsed.settings || { debugDate: '', colors: { ...DEFAULT_COLORS } },
+              settings: {
+                  debugDate: '',
+                  showHomeLogs: true,
+                  customTypes: [],
+                  colors: { ...DEFAULT_COLORS },
+                  ...(parsed.settings || {})
+              },
               home: parsed.home || DEFAULT_DATA.home,
               programs: parsed.programs || [],
               routines: parsed.routines || [],
@@ -1657,32 +1663,92 @@ document.addEventListener('DOMContentLoaded', () => {
       backBtn.addEventListener('click', () => renderView('exercise-detail'));
 
       const exObj = getExerciseObj(currentExercise);
+      const editOptions = content.querySelector('.edit-options');
 
-      const checkboxes = content.querySelectorAll('.custom-checkbox input');
-      checkboxes.forEach(cb => {
-          const type = cb.dataset.type;
-          const icon = cb.nextElementSibling;
-          if (exObj.types.includes(type)) {
-              cb.checked = true;
-              icon.textContent = 'check_box';
-          } else {
-              cb.checked = false;
-              icon.textContent = 'check_box_outline_blank';
+      const defaultTypes = ['kg', 'reps', 'km', 'm', 'laps', 'time'];
+      const customTypes = data.settings.customTypes || [];
+      let allTypes = [...new Set([...defaultTypes, ...customTypes, ...exObj.types])];
+
+      function renderCheckboxes() {
+          editOptions.innerHTML = '';
+          for (let i = 0; i < allTypes.length; i += 2) {
+              const row = document.createElement('div');
+              row.className = 'edit-row';
+              
+              [allTypes[i], allTypes[i+1]].forEach(type => {
+                  if (!type) return;
+                  const label = document.createElement('label');
+                  label.className = 'custom-checkbox';
+                  
+                  const isChecked = exObj.types.includes(type);
+                  label.innerHTML = `
+                      <input type="checkbox" ${isChecked ? 'checked' : ''} data-type="${type}">
+                      <span class="checkmark material-icons-outlined">${isChecked ? 'check_box' : 'check_box_outline_blank'}</span>
+                      <span class="line-placeholder"></span>
+                      ${type}
+                  `;
+                  
+                  const cb = label.querySelector('input');
+                  const icon = label.querySelector('.checkmark');
+                  cb.addEventListener('change', (e) => {
+                      icon.textContent = e.target.checked ? 'check_box' : 'check_box_outline_blank';
+                  });
+                  
+                  if (!defaultTypes.includes(type)) {
+                      const delBtn = document.createElement('span');
+                      delBtn.className = 'material-icons-outlined';
+                      delBtn.style.fontSize = '14px';
+                      delBtn.style.marginLeft = 'auto';
+                      delBtn.style.cursor = 'pointer';
+                      delBtn.style.color = 'var(--text-light)';
+                      delBtn.textContent = 'close';
+                      delBtn.addEventListener('click', (e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          if (confirm(`Delete custom metric "${type}" from settings?`)) {
+                              data.settings.customTypes = data.settings.customTypes.filter(t => t !== type);
+                              allTypes = allTypes.filter(t => t !== type);
+                              // Remove it from all exercises
+                              data.exercises.forEach(ex => {
+                                  if (ex.types) ex.types = ex.types.filter(t => t !== type);
+                              });
+                              saveData();
+                              renderCheckboxes();
+                          }
+                      });
+                      label.appendChild(delBtn);
+                  }
+                  
+                  row.appendChild(label);
+              });
+              editOptions.appendChild(row);
           }
+      }
 
-          cb.addEventListener('change', (e) => {
-              if (e.target.checked) {
-                  icon.textContent = 'check_box';
-              } else {
-                  icon.textContent = 'check_box_outline_blank';
+      renderCheckboxes();
+
+      const addBtn = content.querySelector('#btn-add-custom-type');
+      if (addBtn) {
+          addBtn.addEventListener('click', () => {
+              const newType = prompt('Enter custom metric name (e.g. sets, seconds):');
+              if (newType) {
+                  const normalized = newType.trim().toLowerCase();
+                  if (normalized && !allTypes.includes(normalized)) {
+                      if (!data.settings.customTypes) data.settings.customTypes = [];
+                      data.settings.customTypes.push(normalized);
+                      allTypes.push(normalized);
+                      exObj.types.push(normalized); // Auto-check it
+                      saveData();
+                      renderCheckboxes();
+                  }
               }
           });
-      });
+      }
 
       const saveBtn = content.querySelector('.btn-large-add');
       saveBtn.addEventListener('click', () => {
           const newTypes = [];
-          checkboxes.forEach(cb => {
+          editOptions.querySelectorAll('.custom-checkbox input').forEach(cb => {
               if (cb.checked) {
                   newTypes.push(cb.dataset.type);
               }
