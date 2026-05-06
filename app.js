@@ -1,2199 +1,2199 @@
-const APP_VERSION = '0.37';
+const APP_VERSION = '0.38';
 document.addEventListener('DOMContentLoaded', () => {
-  const mainContent = document.getElementById('main-content');
-  const navLinks = document.querySelectorAll('.nav-link');
-
-  let currentExercise = '';
-  let currentViewName = 'home';
-  let exerciseReturnView = 'exercises';
-  let homeLogsViewDate = null; // null means today
-
-  const DEFAULT_COLORS = {
-      primary: '#beff5c',
-      bg: '#ffffff',
-      textDark: '#111111',
-      textLight: '#666666',
-      textDisabled: '#bbbbbb',
-      border: '#e0e0e0',
-      btnSecondaryBg: '#e6e6e6',
-      btnRemoveColor: '#aaaaaa',
-      danger: '#dc3545'
-  };
-
-  const DEFAULT_DATA = {
-    version: 1,
-    settings: { debugDate: '', showHomeLogs: true, oneRMFormula: 'epley', customTypes: [], colors: { ...DEFAULT_COLORS } },
-    home: {
-      history: {}
-    },
-    programs: [],
-    routines: [],
-    exercises: []
-  };
-
-  let data = JSON.parse(JSON.stringify(DEFAULT_DATA));
-  try {
-      const saved = localStorage.getItem('grenelle_fitness_data');
-      if (saved) {
-          const parsed = JSON.parse(saved);
-          data = {
-              version: parsed.version || 1,
-              settings: {
-                  debugDate: '',
-                  showHomeLogs: true,
-                  oneRMFormula: 'epley',
-                  customTypes: [],
-                  colors: { ...DEFAULT_COLORS },
-                  ...(parsed.settings || {})
-              },
-              home: parsed.home || DEFAULT_DATA.home,
-              programs: parsed.programs || [],
-              routines: parsed.routines || [],
-              exercises: parsed.exercises || []
-          };
-      }
-  } catch(e) {
-      console.error('Failed to parse saved data', e);
-  }
-
-  function applyColors() {
-      const colors = (data.settings && data.settings.colors) ? data.settings.colors : DEFAULT_COLORS;
-      document.documentElement.style.setProperty('--primary-color', colors.primary || DEFAULT_COLORS.primary);
-      document.documentElement.style.setProperty('--bg-color', colors.bg || DEFAULT_COLORS.bg);
-      document.documentElement.style.setProperty('--text-dark', colors.textDark || DEFAULT_COLORS.textDark);
-      document.documentElement.style.setProperty('--text-light', colors.textLight || DEFAULT_COLORS.textLight);
-      document.documentElement.style.setProperty('--text-disabled', colors.textDisabled || DEFAULT_COLORS.textDisabled);
-      document.documentElement.style.setProperty('--border-color', colors.border || DEFAULT_COLORS.border);
-      document.documentElement.style.setProperty('--btn-secondary-bg', colors.btnSecondaryBg || DEFAULT_COLORS.btnSecondaryBg);
-      document.documentElement.style.setProperty('--btn-remove-color', colors.btnRemoveColor || DEFAULT_COLORS.btnRemoveColor);
-      document.documentElement.style.setProperty('--danger-color', colors.danger || DEFAULT_COLORS.danger);
-      document.documentElement.style.setProperty('--notes-line-color', colors.border || DEFAULT_COLORS.border);
-  }
-
-  applyColors();
-
-  function getCurrentDate() {
-      if (data.settings && data.settings.debugDate) {
-          return data.settings.debugDate;
-      }
-      return new Date().toLocaleDateString('en-GB').replace(/\//g, '-');
-  }
-
-  function getHomeItemsForDate(date) {
-      if (!data.home.history) {
-          data.home.history = {};
-          if (data.home.items) {
-              const oldDate = data.home.date || new Date().toLocaleDateString('en-GB').replace(/\//g, '-');
-              data.home.history[oldDate] = data.home.items;
-              delete data.home.items;
-              delete data.home.date;
-          }
-      }
-      if (!data.home.history[date]) {
-          data.home.history[date] = [];
-      }
-      return data.home.history[date];
-  }
-
-  function getAllTags() {
-      const tags = new Set();
-      if (data.home && data.home.tags) {
-          Object.values(data.home.tags).forEach(dayTags => {
-              if (Array.isArray(dayTags)) dayTags.forEach(t => tags.add(t));
-          });
-      }
-      if (data.exercises) {
-          data.exercises.forEach(ex => {
-              if (ex.logs) {
-                  ex.logs.forEach(log => {
-                      if (log.tags && Array.isArray(log.tags)) {
-                          log.tags.forEach(t => tags.add(t));
-                      } else if (log.tag) {
-                          log.tag.split(/[\s,]+/).filter(t=>t).forEach(t => tags.add(t));
-                      }
-                  });
-              }
-          });
-      }
-      return Array.from(tags).sort();
-  }
-
-  function getSetTags(logEntry) {
-      if (logEntry.tags && Array.isArray(logEntry.tags)) return logEntry.tags;
-      if (logEntry.tag) return logEntry.tag.split(/[\s,]+/).filter(t => t);
-      return [];
-  }
-
-  function calculateOneRM(w, r) {
-      if (r === 1) return w;
-      const formula = data.settings?.oneRMFormula || 'epley';
-      switch (formula) {
-          case 'brzycki': return w * 36 / (37 - r);
-          case 'lander': return (100 * w) / (101.3 - 2.67123 * r);
-          case 'lombardi': return w * Math.pow(r, 0.1);
-          case 'epley':
-          default:
-              return w * (1 + r / 30);
-      }
-  }
-
-  function saveData() {
-      localStorage.setItem('grenelle_fitness_data', JSON.stringify(data, null, 2));
-  }
-
-  const settingsIcon = document.querySelector('.settings-icon');
-  if (settingsIcon) {
-      settingsIcon.addEventListener('click', () => {
-          renderView('settings');
-      });
-  }
-
-  const sdDialog = document.getElementById('selection-dialog');
-  const sdTitle = document.getElementById('sd-title');
-  const sdList = document.getElementById('sd-list');
-  const sdNewContainer = document.getElementById('sd-new-container');
-  const sdInput = document.getElementById('sd-input');
-  const sdCancel = document.getElementById('sd-cancel');
-  const sdAddNewBtn = document.getElementById('sd-add-new-btn');
-  const sdSaveBtn = document.getElementById('sd-save-btn');
-
-  let currentSelectionCallback = null;
-
-  function openSelectionDialog(title, optionsList, onSelect, addNewText = 'add new', showAddNew = true) {
-      sdTitle.textContent = title;
-      currentSelectionCallback = onSelect;
-      sdAddNewBtn.textContent = addNewText;
-
-      sdList.style.display = 'block';
-      sdNewContainer.style.display = 'none';
-      sdAddNewBtn.style.display = showAddNew ? 'block' : 'none';
-      sdSaveBtn.style.display = 'none';
-      sdInput.value = '';
-
-      sdInput.setAttribute('autocapitalize', 'none');
-      sdList.innerHTML = '';
-      if (optionsList.length === 0) {
-          sdList.innerHTML = '<div style="color: gray; font-size: 14px; text-align: center; padding: 12px;">No existing entries</div>';
-      } else {
-          let options = optionsList.map(opt => typeof opt === 'string' ? { label: opt, value: opt } : opt);
-          if (typeof optionsList[0] === 'string') {
-              options.sort((a, b) => a.label.localeCompare(b.label));
-          }
-          options.forEach(opt => {
-              const div = document.createElement('div');
-              div.className = 'list-item';
-              div.textContent = opt.label;
-              div.addEventListener('click', () => {
-                  sdDialog.close();
-                  if(currentSelectionCallback) currentSelectionCallback(opt.value);
-              });
-              sdList.appendChild(div);
-          });
-      }
-
-      sdDialog.showModal();
-  }
-
-  sdCancel.addEventListener('click', () => sdDialog.close());
-
-  sdAddNewBtn.addEventListener('click', () => {
-      sdList.style.display = 'none';
-      sdAddNewBtn.style.display = 'none';
-      sdNewContainer.style.display = 'block';
-      sdSaveBtn.style.display = 'block';
-      sdInput.focus();
-  });
-
-  sdSaveBtn.addEventListener('click', () => {
-      const val = sdInput.value.trim();
-      if (val) {
-          sdDialog.close();
-          if(currentSelectionCallback) currentSelectionCallback(val);
-      }
-  });
-
-  sdInput.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') {
-          sdSaveBtn.click();
-      }
-  });
-
-  // --- Calendar Dialog Logic ---
-  const calDialog = document.getElementById('calendar-dialog');
-  const calMonthLabel = document.getElementById('cal-month-label');
-  const calGrid = document.getElementById('cal-grid');
-  const calPrev = document.getElementById('cal-prev');
-  const calNext = document.getElementById('cal-next');
-  const calCancel = document.getElementById('cal-cancel');
-
-  let calViewDate = new Date(); // Month currently being viewed in calendar
-  let calOnSelect = null;
-
-  function openCalendarDialog(initialDateStr, onSelect) {
-      calOnSelect = onSelect;
-
-      // Parse initial date (dd-mm-yyyy)
-      const parts = initialDateStr.split('-');
-      calViewDate = new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, 1);
-
-      renderCalendar();
-      calDialog.showModal();
-  }
-
-  function renderCalendar() {
-      calGrid.innerHTML = '';
-      const year = calViewDate.getFullYear();
-      const month = calViewDate.getMonth();
-
-      calMonthLabel.textContent = calViewDate.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' }).toLowerCase();
-
-      // Days with logs for highlighting
-      const loggedDates = new Set();
-      data.exercises.forEach(ex => {
-          if (ex.logs) ex.logs.forEach(l => loggedDates.add(l.date));
-      });
-
-      const todayStr = new Date().toLocaleDateString('en-GB').replace(/\//g, '-');
-      const selectedStr = homeLogsViewDate || todayStr;
-
-      // Start of month
-      const firstDay = new Date(year, month, 1).getDay();
-      const daysInMonth = new Date(year, month + 1, 0).getDate();
-
-      // Adjust for Monday start (JS getDay is 0 for Sun)
-      const startOffset = (firstDay === 0) ? 6 : firstDay - 1;
-
-      // Empty slots before 1st
-      for (let i = 0; i < startOffset; i++) {
-          const div = document.createElement('div');
-          div.className = 'cal-day empty';
-          calGrid.appendChild(div);
-      }
-
-      // Day slots
-      for (let d = 1; d <= daysInMonth; d++) {
-          const div = document.createElement('div');
-          div.className = 'cal-day';
-          div.textContent = d;
-
-          const dateStr = `${d.toString().padStart(2, '0')}-${(month + 1).toString().padStart(2, '0')}-${year}`;
-
-          if (dateStr === todayStr) div.classList.add('today');
-          if (dateStr === selectedStr) div.classList.add('selected');
-          if (loggedDates.has(dateStr)) div.classList.add('has-logs');
-
-          div.addEventListener('click', () => {
-              calDialog.close();
-              if (calOnSelect) calOnSelect(dateStr);
-          });
-
-          calGrid.appendChild(div);
-      }
-  }
-
-  calPrev.addEventListener('click', () => {
-      calViewDate.setMonth(calViewDate.getMonth() - 1);
-      renderCalendar();
-  });
-
-  calNext.addEventListener('click', () => {
-      calViewDate.setMonth(calViewDate.getMonth() + 1);
-      renderCalendar();
-  });
-
-  calCancel.addEventListener('click', () => calDialog.close());
-
-
-  function renderInlineAdd(listContainer, onSave, onCancel) {
-      if (listContainer.querySelector('.inline-add-row')) return;
-
-      const row = document.createElement('div');
-      row.className = 'list-item inline-add-row';
-
-      const input = document.createElement('input');
-      input.type = 'text';
-      input.className = 'inline-input';
-      input.placeholder = 'Name...';
-      input.setAttribute('autocapitalize', 'none');
-
-      const actions = document.createElement('div');
-      actions.className = 'inline-actions';
-
-      const saveBtn = document.createElement('span');
-      saveBtn.className = 'material-icons-outlined inline-btn inline-save';
-      saveBtn.textContent = 'check';
-
-      const cancelBtn = document.createElement('span');
-      cancelBtn.className = 'material-icons-outlined inline-btn inline-cancel';
-      cancelBtn.textContent = 'close';
-
-      actions.appendChild(saveBtn);
-      actions.appendChild(cancelBtn);
-      row.appendChild(input);
-      row.appendChild(actions);
-
-      listContainer.prepend(row);
-      input.focus();
-
-      saveBtn.addEventListener('click', () => {
-          const val = input.value.trim();
-          if (val) {
-              onSave(val);
-          } else {
-              onCancel();
-          }
-      });
-
-      cancelBtn.addEventListener('click', () => onCancel());
-  }
-
-  function setupReorderable(container, array, onReorder) {
-      let draggedItem = null;
-
-      Array.from(container.children).forEach(child => {
-          // Disable native HTML5 drag on touch devices to prevent conflicts
-          if (!('ontouchstart' in window)) {
-              child.draggable = true;
-          }
-
-          // --- Desktop Drag & Drop ---
-          child.addEventListener('dragstart', (e) => {
-              draggedItem = child;
-              e.dataTransfer.effectAllowed = 'move';
-              if (e.dataTransfer.setData) e.dataTransfer.setData('text/plain', '');
-              setTimeout(() => child.style.opacity = '0.5', 0);
-          });
-
-          child.addEventListener('dragend', () => {
-              if (draggedItem) {
-                  draggedItem.style.opacity = '1';
-              }
-              draggedItem = null;
-          });
-
-          child.addEventListener('dragover', (e) => {
-              e.preventDefault();
-              e.dataTransfer.dropEffect = 'move';
-
-              if (child === draggedItem || !draggedItem) return;
-
-              const rect = child.getBoundingClientRect();
-              const midpoint = rect.top + rect.height / 2;
-              if (e.clientY < midpoint) {
-                  container.insertBefore(draggedItem, child);
-              } else {
-                  container.insertBefore(draggedItem, child.nextSibling);
-              }
-          });
-
-          child.addEventListener('drop', (e) => {
-              e.preventDefault();
-              if (draggedItem) {
-                  draggedItem.style.opacity = '1';
-              }
-              const newArray = [];
-              Array.from(container.children).forEach(c => {
-                  const idx = parseInt(c.dataset.index, 10);
-                  if (!isNaN(idx)) {
-                      newArray.push(array[idx]);
-                  }
-              });
-              onReorder(newArray);
-          });
-
-          // --- Mobile Touch Drag & Drop ---
-          let pressTimer = null;
-          let isDragging = false;
-          let wasDragging = false;
-
-          child.addEventListener('touchstart', (e) => {
-              if (e.touches.length !== 1) return;
-              pressTimer = setTimeout(() => {
-                  isDragging = true;
-                  draggedItem = child;
-                  child.style.opacity = '0.5';
-                  if (navigator.vibrate) navigator.vibrate(50);
-              }, 400); // 400ms long press to activate drag
-          }, { passive: true });
-
-          child.addEventListener('contextmenu', (e) => {
-              if (isDragging) {
-                  e.preventDefault();
-              }
-          });
-
-          child.addEventListener('touchmove', (e) => {
-              if (!isDragging || !draggedItem) {
-                  clearTimeout(pressTimer);
-                  return;
-              }
-              e.preventDefault(); // Prevent scrolling
-
-              const touch = e.touches[0];
-              const target = document.elementFromPoint(touch.clientX, touch.clientY);
-              if (!target) return;
-
-              let overItem = target;
-              while (overItem && overItem.parentNode !== container) {
-                  overItem = overItem.parentNode;
-              }
-
-              if (overItem && overItem !== draggedItem && overItem.parentNode === container) {
-                  const rect = overItem.getBoundingClientRect();
-                  const midpoint = rect.top + rect.height / 2;
-                  if (touch.clientY < midpoint) {
-                      container.insertBefore(draggedItem, overItem);
-                  } else {
-                      container.insertBefore(draggedItem, overItem.nextSibling);
-                  }
-              }
-          }, { passive: false });
-
-          const endTouch = () => {
-              clearTimeout(pressTimer);
-              if (isDragging) {
-                  isDragging = false;
-                  wasDragging = true;
-                  setTimeout(() => wasDragging = false, 50);
-
-                  if (draggedItem) draggedItem.style.opacity = '1';
-                  draggedItem = null;
-
-                  const newArray = [];
-                  Array.from(container.children).forEach(c => {
-                      const idx = parseInt(c.dataset.index, 10);
-                      if (!isNaN(idx)) newArray.push(array[idx]);
-                  });
-                  onReorder(newArray);
-              }
-          };
-
-          child.addEventListener('touchend', endTouch);
-          child.addEventListener('touchcancel', endTouch);
-
-          child.addEventListener('click', (e) => {
-              if (wasDragging) {
-                  e.stopPropagation();
-                  e.preventDefault();
-              }
-          }, true); // Capture phase to intercept clicks before children
-      });
-  }
-
-  function addLongPressListener(element, callback) {
-      let timer;
-      let isLongPress = false;
-      const delay = 600;
-
-      const start = (e) => {
-          if (e.type === 'touchstart' && e.touches.length > 1) return;
-          isLongPress = false;
-          timer = setTimeout(() => {
-              isLongPress = true;
-              if (navigator.vibrate) navigator.vibrate(50);
-              callback(e);
-          }, delay);
-      };
-
-      const cancel = () => {
-          clearTimeout(timer);
-      };
-
-      element.addEventListener('mousedown', start);
-      element.addEventListener('touchstart', start, { passive: true });
-      element.addEventListener('mouseup', cancel);
-      element.addEventListener('mouseleave', cancel);
-      element.addEventListener('touchend', cancel);
-      element.addEventListener('touchmove', cancel);
-
-      element.addEventListener('click', (e) => {
-          if (isLongPress) {
-              e.preventDefault();
-              e.stopPropagation();
-          }
-      }, true);
-  }
-
-  function renderInlineRename(elementToReplace, initialValue, onSave) {
-      const parent = elementToReplace.parentNode;
-      if (parent.querySelector('.inline-edit-row')) return;
-
-      const originalDisplay = elementToReplace.style.display;
-
-      // If it's a header title, we might want to hide the action buttons too
-      const siblingButtons = parent.querySelector('div[style*="display:flex"]');
-      const originalButtonsDisplay = siblingButtons ? siblingButtons.style.display : null;
-
-      elementToReplace.style.display = 'none';
-      if (siblingButtons) siblingButtons.style.display = 'none';
-
-      const row = document.createElement('div');
-      row.className = 'inline-edit-row';
-
-      const input = document.createElement('input');
-      input.type = 'text';
-      input.className = 'inline-input';
-      input.value = initialValue;
-      input.setAttribute('autocapitalize', 'none');
-
-      const actions = document.createElement('div');
-      actions.className = 'inline-actions';
-
-      const saveBtn = document.createElement('span');
-      saveBtn.className = 'material-icons-outlined inline-btn inline-save';
-      saveBtn.textContent = 'check';
-
-      const cancelBtn = document.createElement('span');
-      cancelBtn.className = 'material-icons-outlined inline-btn inline-cancel';
-      cancelBtn.textContent = 'close';
-
-      actions.appendChild(saveBtn);
-      actions.appendChild(cancelBtn);
-      row.appendChild(input);
-      row.appendChild(actions);
-
-      parent.insertBefore(row, elementToReplace.nextSibling);
-      input.focus();
-      input.select();
-
-      const finish = (success) => {
-          row.remove();
-          elementToReplace.style.display = originalDisplay;
-          if (siblingButtons) siblingButtons.style.display = originalButtonsDisplay;
-
-          if (success) {
-              const val = input.value.trim();
-              if (val && val !== initialValue) {
-                  onSave(val);
-              }
-          }
-      };
-
-      saveBtn.addEventListener('click', (e) => {
-          e.stopPropagation();
-          finish(true);
-      });
-      cancelBtn.addEventListener('click', (e) => {
-          e.stopPropagation();
-          finish(false);
-      });
-      input.addEventListener('keydown', (e) => {
-          if (e.key === 'Enter') finish(true);
-          if (e.key === 'Escape') finish(false);
-      });
-      input.addEventListener('click', (e) => e.stopPropagation());
-  }
-
-  function renameExercise(oldName, newName) {
-      if (!newName || oldName === newName) return;
-      const ex = data.exercises.find(e => e.name === oldName);
-      if (ex) ex.name = newName;
-
-      data.routines.forEach(r => {
-          r.items = r.items.map(item => item === oldName ? newName : item);
-      });
-
-      data.programs.forEach(p => {
-          p.items = p.items.map(item => item === oldName ? newName : item);
-      });
-
-      if (data.home.history) {
-          Object.keys(data.home.history).forEach(date => {
-              data.home.history[date] = data.home.history[date].map(item => item === oldName ? newName : item);
-          });
-      }
-
-      if (currentExercise === oldName) currentExercise = newName;
-      saveData();
-  }
-
-  function renameRoutine(oldName, newName) {
-      if (!newName || oldName === newName) return;
-      const rout = data.routines.find(r => r.name === oldName);
-      if (rout) rout.name = newName;
-
-      data.programs.forEach(p => {
-          p.items = p.items.map(item => item === oldName ? newName : item);
-      });
-      saveData();
-  }
-
-  function renameProgram(oldName, newName) {
-      if (!newName || oldName === newName) return;
-      const prog = data.programs.find(p => p.name === oldName);
-      if (prog) prog.name = newName;
-      saveData();
-  }
-
-  function getExerciseObj(name) {
-      let ex = data.exercises.find(e => e.name === name);
-      if (!ex) {
-          ex = { name: name, types: ['kg', 'reps'], logs: [], notes: '' };
-          data.exercises.push(ex);
-      }
-      return ex;
-  }
-
-  function renderView(viewName) {
-    if (viewName === 'exercise-detail' && ['home', 'programs', 'routines', 'exercises'].includes(currentViewName)) {
-        exerciseReturnView = currentViewName;
-    }
-    if (currentViewName === 'home' && viewName !== 'home') {
-        homeLogsViewDate = null; // reset to today when leaving home
-    }
-    currentViewName = viewName;
-
-    const template = document.getElementById(`view-${viewName}`);
-    if (!template) return;
-
-    navLinks.forEach(link => {
-      if (link.dataset.target === viewName) {
-        link.classList.add('active');
-      } else {
-        link.classList.remove('active');
-      }
-    });
-
-    const topNav = document.querySelector('.top-nav');
-    if (['home', 'programs', 'routines', 'exercises'].includes(viewName)) {
-      topNav.style.display = 'flex';
-    } else {
-      topNav.style.display = 'none';
-    }
-
-    mainContent.innerHTML = '';
-    const content = template.content.cloneNode(true);
-
-    if (viewName === 'home') {
-      const listContainer = content.getElementById('home-list');
-      const emptyState = content.getElementById('home-empty');
-      const dateDisplay = content.getElementById('home-date-display');
-
-      const todayStr = getCurrentDate();
-      const logsDate = homeLogsViewDate || todayStr;
-      const isViewingToday = logsDate === todayStr;
-
-      const itemsForDate = getHomeItemsForDate(logsDate);
-
-      if (dateDisplay) {
-          dateDisplay.textContent = isViewingToday ? todayStr : logsDate;
-          dateDisplay.style.cursor = 'pointer';
-          dateDisplay.addEventListener('click', () => {
-              openCalendarDialog(logsDate, (selected) => {
-                  homeLogsViewDate = selected === todayStr ? null : selected;
-                  renderView('home');
-              });
-          });
-      }
-
-      const tagsSpan = content.querySelector('.add-tags');
-      if (tagsSpan) {
-          if (!data.home.tags) data.home.tags = {};
-          const currentTags = data.home.tags[logsDate] || [];
-
-          tagsSpan.innerHTML = '';
-          if (currentTags.length > 0) {
-              currentTags.forEach(t => {
-                  const s = document.createElement('span');
-                  s.textContent = `#${t} `;
-                  s.style.color = 'var(--text-dark)';
-                  s.style.fontWeight = '600';
-                  s.style.cursor = 'pointer';
-                  s.addEventListener('click', (e) => {
-                      e.stopPropagation();
-                      data.home.tags[logsDate] = data.home.tags[logsDate].filter(x => x !== t);
-                      saveData();
-                      renderView('home');
-                  });
-                  tagsSpan.appendChild(s);
-              });
-          }
-
-          const addS = document.createElement('span');
-          addS.textContent = '<add tags>';
-          addS.style.cursor = 'pointer';
-          addS.addEventListener('click', (e) => {
-              e.stopPropagation();
-              const allTags = getAllTags().map(t => ({ label: `#${t}`, value: t }));
-              openSelectionDialog('Select a tag', allTags, (selection) => {
-                  let val = typeof selection === 'string' ? selection : selection.value;
-                  if (val) {
-                      val = val.replace(/^#/, '').trim();
-                      if (!data.home.tags[logsDate]) data.home.tags[logsDate] = [];
-                      if (!data.home.tags[logsDate].includes(val)) {
-                          data.home.tags[logsDate].push(val);
-                          saveData();
-                          renderView('home');
-                      }
-                  }
-              }, 'add new tag');
-          });
-          tagsSpan.appendChild(addS);
-      }
-
-      const mainAddBtn = content.querySelector('.btn-add');
-      if (mainAddBtn) {
-        mainAddBtn.addEventListener('click', () => {
-          const routines = data.routines.map(r => ({ label: `[routine] ${r.name}`, value: { type: 'routine', items: r.items } })).sort((a,b) => a.label.localeCompare(b.label));
-          const exercises = data.exercises.map(e => ({ label: e.name, value: { type: 'exercise', name: e.name } })).sort((a,b) => a.label.localeCompare(b.label));
-          const allOptions = [...routines, ...exercises];
-
-          openSelectionDialog('Add routine or exercise', allOptions, (selection) => {
-            if (typeof selection === 'string') {
-                itemsForDate.push(selection);
-                getExerciseObj(selection);
-            } else if (selection.type === 'routine') {
-                selection.items.forEach(exName => {
-                    itemsForDate.push(exName);
-                });
-            } else {
-                itemsForDate.push(selection.name);
-            }
-            renderView('home');
-          }, 'add new exercise');
-        });
-      }
-
-      if (itemsForDate.length > 0) {
-        const homeContainer = document.createElement('div');
-        itemsForDate.forEach((item, index) => {
-          const div = document.createElement('div');
-          div.className = 'list-item';
-          div.style.display = 'flex';
-          div.style.alignItems = 'center';
-
-          const textSpan = document.createElement('span');
-          textSpan.style.flex = '1';
-          textSpan.textContent = item;
-          div.appendChild(textSpan);
-
-          const rmBtn = document.createElement('button');
-          rmBtn.className = 'btn-remove-sm material-icons-outlined';
-          rmBtn.textContent = 'close';
-          rmBtn.addEventListener('click', (e) => {
-              e.stopPropagation();
-              itemsForDate.splice(index, 1);
-              renderView('home');
-          });
-          div.appendChild(rmBtn);
-
-          div.dataset.index = index;
-          div.addEventListener('click', () => {
-             currentExercise = item;
-             renderView('exercise-detail');
-          });
-          homeContainer.appendChild(div);
-        });
-        setupReorderable(homeContainer, itemsForDate, (newArr) => {
-           data.home.history[logsDate] = newArr;
-           renderView('home');
-        });
-        listContainer.appendChild(homeContainer);
-        emptyState.style.display = 'none';
-      } else {
-        emptyState.style.display = 'block';
-      }
-
-      // Render logs summary if setting is on
-      const showLogs = data.settings?.showHomeLogs !== false;
-      const dayLogsContainer = content.getElementById('home-day-logs');
-      if (dayLogsContainer && showLogs) {
-          // Collect all logs for the viewed date across all exercises
-          const todayLogs = [];
-          data.exercises.forEach(ex => {
-              if (ex.logs) {
-                  ex.logs.forEach(log => {
-                      if (log.date === logsDate) {
-                          todayLogs.push({ ex, log });
-                      }
-                  });
-              }
-          });
-
-          if (todayLogs.length > 0) {
-              // Group by exercise, tracking earliest timestamp for sort
-              const byExercise = {};
-              todayLogs.forEach(({ ex, log }) => {
-                  if (!byExercise[ex.name]) byExercise[ex.name] = { ex, logs: [], firstTs: Infinity };
-                  byExercise[ex.name].logs.push(log);
-                  const ts = log.ts || 0;
-                  if (ts < byExercise[ex.name].firstTs) byExercise[ex.name].firstTs = ts;
-              });
-
-              // Sort exercises by time of first set logged
-              const sortedExercises = Object.entries(byExercise)
-                  .sort(([, a], [, b]) => a.firstTs - b.firstTs);
-
-              const logsSection = document.createElement('div');
-              logsSection.style.marginTop = '16px';
-
-              const logsHeading = document.createElement('div');
-              logsHeading.className = 'settings-subheading';
-              logsHeading.style.marginTop = '0';
-              logsHeading.textContent = isViewingToday ? "today's sets" : `sets on ${logsDate}`;
-              logsSection.appendChild(logsHeading);
-
-              sortedExercises.forEach(([exName, { ex, logs }]) => {
-                  const exHeader = document.createElement('div');
-                  exHeader.className = 'day-header';
-                  exHeader.style.cursor = 'pointer';
-                  exHeader.innerHTML = `<span>${exName}</span>`;
-                  exHeader.addEventListener('click', () => {
-                      currentExercise = exName;
-                      renderView('exercise-detail');
-                  });
-                  logsSection.appendChild(exHeader);
-
-                  let workSetCount = 0;
-                  logs.forEach(set => {
-                      const setType = set.type || 's';
-                      let setLabel;
-                      if (setType === 'w') setLabel = 'W';
-                      else if (setType === 'p') setLabel = 'P';
-                      else { workSetCount++; setLabel = workSetCount.toString(); }
-
-                      const setRow = document.createElement('div');
-                      setRow.className = 'set-row';
-
-                      const numSpan = document.createElement('span');
-                      numSpan.className = 'set-num';
-                      numSpan.textContent = setLabel;
-                      setRow.appendChild(numSpan);
-
-                      const metricsWrap = document.createElement('div');
-                      metricsWrap.style.display = 'flex';
-                      metricsWrap.style.gap = '12px';
-                      metricsWrap.style.flex = '1';
-                      metricsWrap.style.flexWrap = 'wrap';
-
-                      Object.entries(set.data).forEach(([k, v]) => {
-                          const s = document.createElement('span');
-                          s.textContent = `${v} ${k}`;
-                          metricsWrap.appendChild(s);
-                      });
-
-                      setRow.appendChild(metricsWrap);
-                      logsSection.appendChild(setRow);
-                  });
-              });
-
-              dayLogsContainer.appendChild(logsSection);
-          }
-      }
-    } else if (viewName === 'programs') {
-      const listContainer = content.getElementById('programs-list');
-      const emptyState = content.getElementById('programs-empty');
-
-      const mainAddBtn = content.querySelector('.main-add-row .btn-add');
-      if (mainAddBtn) {
-        mainAddBtn.addEventListener('click', () => {
-          emptyState.style.display = 'none';
-          renderInlineAdd(listContainer, (name) => {
-             data.programs.push({ name: name, items: [] });
-             renderView('programs');
-          }, () => renderView('programs'));
-        });
-      }
-
-      if (data.programs.length > 0) {
-        const sortedProgs = [...data.programs].sort((a,b) => a.name.localeCompare(b.name));
-        sortedProgs.forEach(prog => {
-          const progContainer = document.createElement('div');
-
-          const header = document.createElement('div');
-          header.className = 'list-header';
-          header.innerHTML = `<span class="list-header-title" style="cursor: pointer;">${prog.name}</span> <div style="display:flex"><button class="btn-add-sm">+</button><button class="btn-remove-sm material-icons-outlined">close</button></div>`;
-          progContainer.appendChild(header);
-
-          const titleSpan = header.querySelector('.list-header-title');
-          addLongPressListener(titleSpan, () => {
-              renderInlineRename(titleSpan, prog.name, (newName) => {
-                  renameProgram(prog.name, newName);
-                  renderView('programs');
-              });
-          });
-
-          const headerRmBtn = header.querySelector('.btn-remove-sm');
-          headerRmBtn.addEventListener('click', () => {
-              if (confirm(`Delete program "${prog.name}"?`)) {
-                  data.programs = data.programs.filter(p => p.name !== prog.name);
-                  renderView('programs');
-              }
-          });
-
-          const headerBtn = header.querySelector('.btn-add-sm');
-          headerBtn.addEventListener('click', () => {
-            openSelectionDialog(`Add routine to "${prog.name}"`, data.routines.map(r=>r.name), (name) => {
-              prog.items.push(name);
-              if (!data.routines.find(r => r.name === name)) {
-                 data.routines.push({ name: name, items: [] });
-              }
-              renderView('programs');
-            });
-          });
-
-          const routinesContainer = document.createElement('div');
-          prog.items.forEach((routineName, index) => {
-            const rWrapper = document.createElement('div');
-            rWrapper.dataset.index = index;
-
-            let rout = data.routines.find(r => r.name === routineName);
-            if (!rout) {
-                rout = { name: routineName, items: [] };
-                data.routines.push(rout);
-            }
-
-            const rHeader = document.createElement('div');
-            rHeader.className = 'list-header';
-            rHeader.style.marginTop = '8px';
-            rHeader.style.paddingLeft = '24px';
-            rHeader.innerHTML = `<span class="list-header-title">${routineName}</span> <div style="display:flex"><button class="btn-add-sm">+</button><button class="btn-remove-sm material-icons-outlined">close</button></div>`;
-            rWrapper.appendChild(rHeader);
-
-            const rRmBtn = rHeader.querySelector('.btn-remove-sm');
-            rRmBtn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                if (confirm(`Remove routine "${routineName}" from program?`)) {
-                    prog.items.splice(index, 1);
-                    renderView('programs');
-                }
-            });
-
-            const rHeaderBtn = rHeader.querySelector('.btn-add-sm');
-            rHeaderBtn.addEventListener('click', () => {
-              openSelectionDialog(`Add exercise to "${routineName}"`, data.exercises.map(e=>e.name), (name) => {
-                rout.items.push(name);
-                if (!data.exercises.find(e=>e.name === name)) {
-                  getExerciseObj(name);
-                }
-                renderView('programs');
-              });
-            });
-
-            rout.items.forEach((exName, exIndex) => {
-              const div = document.createElement('div');
-              div.className = 'list-item';
-              div.style.display = 'flex';
-              div.style.alignItems = 'center';
-
-              const textSpan = document.createElement('span');
-              textSpan.style.flex = '1';
-              textSpan.style.textAlign = 'right';
-              textSpan.textContent = exName;
-              div.appendChild(textSpan);
-
-              const rmBtn = document.createElement('button');
-              rmBtn.className = 'btn-remove-sm material-icons-outlined';
-              rmBtn.textContent = 'close';
-              rmBtn.addEventListener('click', (e) => {
-                  e.stopPropagation();
-                  if (confirm(`Remove exercise "${exName}" from routine?`)) {
-                      rout.items.splice(exIndex, 1);
-                      renderView('programs');
-                  }
-              });
-              div.appendChild(rmBtn);
-
-              div.addEventListener('click', () => {
-                  currentExercise = exName;
-                  renderView('exercise-detail');
-              });
-              rWrapper.appendChild(div);
-            });
-
-            routinesContainer.appendChild(rWrapper);
-          });
-
-          setupReorderable(routinesContainer, prog.items, (newArr) => {
-              prog.items = newArr;
-              renderView('programs');
-          });
-
-          progContainer.appendChild(routinesContainer);
-          listContainer.appendChild(progContainer);
-        });
-        emptyState.style.display = 'none';
-      } else {
-        emptyState.style.display = 'block';
-      }
-    } else if (viewName === 'routines') {
-      const listContainer = content.getElementById('routines-list');
-      const emptyState = content.getElementById('routines-empty');
-
-      const mainAddBtn = content.querySelector('.main-add-row .btn-add');
-      if (mainAddBtn) {
-        mainAddBtn.addEventListener('click', () => {
-          emptyState.style.display = 'none';
-          renderInlineAdd(listContainer, (name) => {
-             if (!data.routines.find(r => r.name === name)) {
-               data.routines.push({ name: name, items: [] });
-             }
-             renderView('routines');
-          }, () => renderView('routines'));
-        });
-      }
-
-      if (data.routines.length > 0) {
-        const sortedRouts = [...data.routines].sort((a,b) => a.name.localeCompare(b.name));
-        sortedRouts.forEach(rout => {
-          const routContainer = document.createElement('div');
-
-          const header = document.createElement('div');
-          header.className = 'list-header';
-          header.innerHTML = `<span class="list-header-title" style="cursor: pointer;">${rout.name}</span> <div style="display:flex"><button class="btn-add-sm">+</button><button class="btn-remove-sm material-icons-outlined">close</button></div>`;
-          routContainer.appendChild(header);
-
-          const titleSpan = header.querySelector('.list-header-title');
-          addLongPressListener(titleSpan, () => {
-              renderInlineRename(titleSpan, rout.name, (newName) => {
-                  renameRoutine(rout.name, newName);
-                  renderView('routines');
-              });
-          });
-
-          const headerRmBtn = header.querySelector('.btn-remove-sm');
-          headerRmBtn.addEventListener('click', () => {
-              if (confirm(`Delete routine "${rout.name}" completely?`)) {
-                  data.routines = data.routines.filter(r => r.name !== rout.name);
-                  data.programs.forEach(p => {
-                      p.items = p.items.filter(rName => rName !== rout.name);
-                  });
-                  renderView('routines');
-              }
-          });
-
-          const headerBtn = header.querySelector('.btn-add-sm');
-          headerBtn.addEventListener('click', () => {
-            openSelectionDialog(`Add exercise to "${rout.name}"`, data.exercises.map(e=>e.name), (name) => {
-              rout.items.push(name);
-              if (!data.exercises.find(e=>e.name === name)) {
-                getExerciseObj(name);
-              }
-              renderView('routines');
-            });
-          });
-
-          const itemsContainer = document.createElement('div');
-          rout.items.forEach((item, index) => {
-            const div = document.createElement('div');
-            div.className = 'list-item';
-            div.style.display = 'flex';
-            div.style.alignItems = 'center';
-
-            const textSpan = document.createElement('span');
-            textSpan.style.flex = '1';
-            textSpan.style.textAlign = 'right';
-            textSpan.textContent = item;
-            div.appendChild(textSpan);
-
-            const rmBtn = document.createElement('button');
-            rmBtn.className = 'btn-remove-sm material-icons-outlined';
-            rmBtn.textContent = 'close';
-            rmBtn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                if (confirm(`Remove exercise "${item}" from routine?`)) {
-                    rout.items.splice(index, 1);
-                    renderView('routines');
-                }
-            });
-            div.appendChild(rmBtn);
-
-            div.dataset.index = index;
-            div.addEventListener('click', () => {
-                currentExercise = item;
-                renderView('exercise-detail');
-            });
-            itemsContainer.appendChild(div);
-          });
-
-          setupReorderable(itemsContainer, rout.items, (newArr) => {
-             rout.items = newArr;
-             renderView('routines');
-          });
-
-          routContainer.appendChild(itemsContainer);
-          listContainer.appendChild(routContainer);
-        });
-        emptyState.style.display = 'none';
-      } else {
-        emptyState.style.display = 'block';
-      }
-    } else if (viewName === 'exercises') {
-      const listContainer = content.getElementById('exercises-list');
-      const emptyState = content.getElementById('exercises-empty');
-
-      const mainAddBtn = content.querySelector('.main-add-row .btn-add');
-      if (mainAddBtn) {
-        mainAddBtn.addEventListener('click', () => {
-          emptyState.style.display = 'none';
-          renderInlineAdd(listContainer, (name) => {
-             if (!data.exercises.find(e=>e.name === name)) {
-               getExerciseObj(name);
-             }
-             renderView('exercises');
-          }, () => renderView('exercises'));
-        });
-      }
-
-      if (data.exercises.length > 0) {
-        const sorted = [...data.exercises].sort((a,b) => a.name.localeCompare(b.name));
-        sorted.forEach(item => {
-          const div = document.createElement('div');
-          div.className = 'list-item';
-          div.style.display = 'flex';
-          div.style.alignItems = 'center';
-
-          const textSpan = document.createElement('span');
-          textSpan.style.flex = '1';
-          textSpan.textContent = item.name;
-          textSpan.style.cursor = 'pointer';
-          div.appendChild(textSpan);
-
-          addLongPressListener(textSpan, () => {
-              renderInlineRename(textSpan, item.name, (newName) => {
-                  renameExercise(item.name, newName);
-                  renderView('exercises');
-              });
-          });
-
-          const rmBtn = document.createElement('button');
-          rmBtn.className = 'btn-remove-sm material-icons-outlined';
-          rmBtn.textContent = 'close';
-          rmBtn.addEventListener('click', (e) => {
-              e.stopPropagation();
-              if (confirm(`Delete exercise "${item.name}" completely?`)) {
-                  data.exercises = data.exercises.filter(ex => ex.name !== item.name);
-                  data.routines.forEach(r => {
-                      r.items = r.items.filter(exName => exName !== item.name);
-                  });
-                  renderView('exercises');
-              }
-          });
-          div.appendChild(rmBtn);
-
-          div.addEventListener('click', () => {
-              currentExercise = item.name;
-              renderView('exercise-detail');
-          });
-          listContainer.appendChild(div);
-        });
-        emptyState.style.display = 'none';
-      } else {
-        emptyState.style.display = 'block';
-      }
-    } else if (viewName === 'exercise-detail') {
-      const titleSpan = content.querySelector('.ex-name');
-      if (titleSpan) titleSpan.textContent = currentExercise;
-
-      const backBtn = content.querySelector('.back-btn');
-      backBtn.addEventListener('click', () => renderView(exerciseReturnView));
-
-      const editIcon = content.querySelector('.edit-icon');
-      if (editIcon) {
-          editIcon.addEventListener('click', () => renderView('exercise-edit'));
-      }
-
-      const exObj = getExerciseObj(currentExercise);
-
-      // Tab switching logic
-      const tabLinks = content.querySelectorAll('.d-nav-link');
-      const tabLogs = content.getElementById('tab-logs');
-      const tabNotes = content.getElementById('tab-notes');
-      const tabData = content.getElementById('tab-data');
-
-      tabLinks.forEach(link => {
-          link.addEventListener('click', (e) => {
-              e.preventDefault();
-              tabLinks.forEach(l => l.classList.remove('active'));
-              link.classList.add('active');
-
-              if (link.dataset.tab === 'logs') {
-                  tabLogs.style.display = 'block';
-                  tabNotes.style.display = 'none';
-                  tabData.style.display = 'none';
-              } else if (link.dataset.tab === 'notes') {
-                  tabLogs.style.display = 'none';
-                  tabNotes.style.display = 'block';
-                  tabData.style.display = 'none';
-              } else if (link.dataset.tab === 'data') {
-                  tabLogs.style.display = 'none';
-                  tabNotes.style.display = 'none';
-                  tabData.style.display = 'block';
-                  renderDataTab();
-              } else {
-                  tabLogs.style.display = 'none';
-                  tabNotes.style.display = 'none';
-                  tabData.style.display = 'none';
-              }
-          });
-      });
-
-      function renderDataTab() {
-          const recordsList = document.getElementById('exercise-records-list');
-          const statsList = document.getElementById('exercise-stats-list');
-          if (!recordsList || !statsList) return;
-
-          recordsList.innerHTML = '';
-          statsList.innerHTML = '';
-
-          if (!exObj.logs || exObj.logs.length === 0) {
-              recordsList.innerHTML = '<div class="empty-state-row" style="border:none">no data available</div>';
-              return;
-          }
-
-          let heaviestWeight = 0;
-          let heaviestWeightLog = null;
-          let best1RM = 0;
-          let best1RMLog = null;
-          let bestSetVolume = 0;
-          let bestSetVolumeLog = null;
-          let bestSessionVolume = 0;
-          let bestSessionVolumeDate = null;
-          
-          let totalVolume = 0;
-          let totalSets = exObj.logs.length;
-          
-          const sessionVolumes = {}; // date -> total volume
-
-          exObj.logs.forEach(log => {
-              const w = parseFloat(log.data.kg);
-              const r = parseInt(log.data.reps, 10);
-              
-              if (!isNaN(w)) {
-                  if (w > heaviestWeight) {
-                      heaviestWeight = w;
-                      heaviestWeightLog = log;
-                  }
-                  
-                  if (!isNaN(r) && r > 0) {
-                      const vol = w * r;
-                      totalVolume += vol;
-                      if (vol > bestSetVolume) {
-                          bestSetVolume = vol;
-                          bestSetVolumeLog = log;
-                      }
-                      
-                      const oneRM = calculateOneRM(w, r);
-                      if (oneRM > best1RM) {
-                          best1RM = oneRM;
-                          best1RMLog = log;
-                      }
-                      
-                      sessionVolumes[log.date] = (sessionVolumes[log.date] || 0) + vol;
-                  }
-              }
-          });
-
-          Object.entries(sessionVolumes).forEach(([date, v]) => {
-              if (v > bestSessionVolume) {
-                  bestSessionVolume = v;
-                  bestSessionVolumeDate = date;
-              }
-          });
-
-          const createRecordItem = (label, value, log, date) => {
-              const div = document.createElement('div');
-              div.className = 'list-item';
-              div.style.display = 'flex';
-              div.style.flexDirection = 'column';
-              div.style.cursor = 'default';
-              
-              let subText = '';
-              if (log) {
-                  const details = Object.entries(log.data).map(([k,v]) => `${v}${k}`).join(' ');
-                  subText = `<div style="font-size:11px; color:var(--text-light); margin-top:2px;">${details} on ${log.date}</div>`;
-              } else if (date) {
-                  subText = `<div style="font-size:11px; color:var(--text-light); margin-top:2px;">on ${date}</div>`;
-              }
-
-              div.innerHTML = `
+	const mainContent = document.getElementById('main-content');
+	const navLinks = document.querySelectorAll('.nav-link');
+
+	let currentExercise = '';
+	let currentViewName = 'home';
+	let exerciseReturnView = 'exercises';
+	let homeLogsViewDate = null; // null means today
+
+	const DEFAULT_COLORS = {
+		primary: '#beff5c',
+		bg: '#ffffff',
+		textDark: '#111111',
+		textLight: '#666666',
+		textDisabled: '#bbbbbb',
+		border: '#e0e0e0',
+		btnSecondaryBg: '#e6e6e6',
+		btnRemoveColor: '#aaaaaa',
+		danger: '#dc3545'
+	};
+
+	const DEFAULT_DATA = {
+		version: 1,
+		settings: { debugDate: '', showHomeLogs: true, oneRMFormula: 'epley', customTypes: [], colors: { ...DEFAULT_COLORS } },
+		home: {
+			history: {}
+		},
+		programs: [],
+		routines: [],
+		exercises: []
+	};
+
+	let data = JSON.parse(JSON.stringify(DEFAULT_DATA));
+	try {
+		const saved = localStorage.getItem('grenelle_fitness_data');
+		if (saved) {
+			const parsed = JSON.parse(saved);
+			data = {
+				version: parsed.version || 1,
+				settings: {
+					debugDate: '',
+					showHomeLogs: true,
+					oneRMFormula: 'epley',
+					customTypes: [],
+					colors: { ...DEFAULT_COLORS },
+					...(parsed.settings || {})
+				},
+				home: parsed.home || DEFAULT_DATA.home,
+				programs: parsed.programs || [],
+				routines: parsed.routines || [],
+				exercises: parsed.exercises || []
+			};
+		}
+	} catch (e) {
+		console.error('Failed to parse saved data', e);
+	}
+
+	function applyColors() {
+		const colors = (data.settings && data.settings.colors) ? data.settings.colors : DEFAULT_COLORS;
+		document.documentElement.style.setProperty('--primary-color', colors.primary || DEFAULT_COLORS.primary);
+		document.documentElement.style.setProperty('--bg-color', colors.bg || DEFAULT_COLORS.bg);
+		document.documentElement.style.setProperty('--text-dark', colors.textDark || DEFAULT_COLORS.textDark);
+		document.documentElement.style.setProperty('--text-light', colors.textLight || DEFAULT_COLORS.textLight);
+		document.documentElement.style.setProperty('--text-disabled', colors.textDisabled || DEFAULT_COLORS.textDisabled);
+		document.documentElement.style.setProperty('--border-color', colors.border || DEFAULT_COLORS.border);
+		document.documentElement.style.setProperty('--btn-secondary-bg', colors.btnSecondaryBg || DEFAULT_COLORS.btnSecondaryBg);
+		document.documentElement.style.setProperty('--btn-remove-color', colors.btnRemoveColor || DEFAULT_COLORS.btnRemoveColor);
+		document.documentElement.style.setProperty('--danger-color', colors.danger || DEFAULT_COLORS.danger);
+		document.documentElement.style.setProperty('--notes-line-color', colors.border || DEFAULT_COLORS.border);
+	}
+
+	applyColors();
+
+	function getCurrentDate() {
+		if (data.settings && data.settings.debugDate) {
+			return data.settings.debugDate;
+		}
+		return new Date().toLocaleDateString('en-GB').replace(/\//g, '-');
+	}
+
+	function getHomeItemsForDate(date) {
+		if (!data.home.history) {
+			data.home.history = {};
+			if (data.home.items) {
+				const oldDate = data.home.date || new Date().toLocaleDateString('en-GB').replace(/\//g, '-');
+				data.home.history[oldDate] = data.home.items;
+				delete data.home.items;
+				delete data.home.date;
+			}
+		}
+		if (!data.home.history[date]) {
+			data.home.history[date] = [];
+		}
+		return data.home.history[date];
+	}
+
+	function getAllTags() {
+		const tags = new Set();
+		if (data.home && data.home.tags) {
+			Object.values(data.home.tags).forEach(dayTags => {
+				if (Array.isArray(dayTags)) dayTags.forEach(t => tags.add(t));
+			});
+		}
+		if (data.exercises) {
+			data.exercises.forEach(ex => {
+				if (ex.logs) {
+					ex.logs.forEach(log => {
+						if (log.tags && Array.isArray(log.tags)) {
+							log.tags.forEach(t => tags.add(t));
+						} else if (log.tag) {
+							log.tag.split(/[\s,]+/).filter(t => t).forEach(t => tags.add(t));
+						}
+					});
+				}
+			});
+		}
+		return Array.from(tags).sort();
+	}
+
+	function getSetTags(logEntry) {
+		if (logEntry.tags && Array.isArray(logEntry.tags)) return logEntry.tags;
+		if (logEntry.tag) return logEntry.tag.split(/[\s,]+/).filter(t => t);
+		return [];
+	}
+
+	function calculateOneRM(w, r) {
+		if (r === 1) return w;
+		const formula = data.settings?.oneRMFormula || 'epley';
+		switch (formula) {
+			case 'brzycki': return w * 36 / (37 - r);
+			case 'lander': return (100 * w) / (101.3 - 2.67123 * r);
+			case 'lombardi': return w * Math.pow(r, 0.1);
+			case 'epley':
+			default:
+				return w * (1 + r / 30);
+		}
+	}
+
+	function saveData() {
+		localStorage.setItem('grenelle_fitness_data', JSON.stringify(data, null, 2));
+	}
+
+	const settingsIcon = document.querySelector('.settings-icon');
+	if (settingsIcon) {
+		settingsIcon.addEventListener('click', () => {
+			renderView('settings');
+		});
+	}
+
+	const sdDialog = document.getElementById('selection-dialog');
+	const sdTitle = document.getElementById('sd-title');
+	const sdList = document.getElementById('sd-list');
+	const sdNewContainer = document.getElementById('sd-new-container');
+	const sdInput = document.getElementById('sd-input');
+	const sdCancel = document.getElementById('sd-cancel');
+	const sdAddNewBtn = document.getElementById('sd-add-new-btn');
+	const sdSaveBtn = document.getElementById('sd-save-btn');
+
+	let currentSelectionCallback = null;
+
+	function openSelectionDialog(title, optionsList, onSelect, addNewText = 'add new', showAddNew = true) {
+		sdTitle.textContent = title;
+		currentSelectionCallback = onSelect;
+		sdAddNewBtn.textContent = addNewText;
+
+		sdList.style.display = 'block';
+		sdNewContainer.style.display = 'none';
+		sdAddNewBtn.style.display = showAddNew ? 'block' : 'none';
+		sdSaveBtn.style.display = 'none';
+		sdInput.value = '';
+
+		sdInput.setAttribute('autocapitalize', 'none');
+		sdList.innerHTML = '';
+		if (optionsList.length === 0) {
+			sdList.innerHTML = '<div style="color: gray; font-size: 14px; text-align: center; padding: 12px;">No existing entries</div>';
+		} else {
+			let options = optionsList.map(opt => typeof opt === 'string' ? { label: opt, value: opt } : opt);
+			if (typeof optionsList[0] === 'string') {
+				options.sort((a, b) => a.label.localeCompare(b.label));
+			}
+			options.forEach(opt => {
+				const div = document.createElement('div');
+				div.className = 'list-item';
+				div.textContent = opt.label;
+				div.addEventListener('click', () => {
+					sdDialog.close();
+					if (currentSelectionCallback) currentSelectionCallback(opt.value);
+				});
+				sdList.appendChild(div);
+			});
+		}
+
+		sdDialog.showModal();
+	}
+
+	sdCancel.addEventListener('click', () => sdDialog.close());
+
+	sdAddNewBtn.addEventListener('click', () => {
+		sdList.style.display = 'none';
+		sdAddNewBtn.style.display = 'none';
+		sdNewContainer.style.display = 'block';
+		sdSaveBtn.style.display = 'block';
+		sdInput.focus();
+	});
+
+	sdSaveBtn.addEventListener('click', () => {
+		const val = sdInput.value.trim();
+		if (val) {
+			sdDialog.close();
+			if (currentSelectionCallback) currentSelectionCallback(val);
+		}
+	});
+
+	sdInput.addEventListener('keydown', (e) => {
+		if (e.key === 'Enter') {
+			sdSaveBtn.click();
+		}
+	});
+
+	// --- Calendar Dialog Logic ---
+	const calDialog = document.getElementById('calendar-dialog');
+	const calMonthLabel = document.getElementById('cal-month-label');
+	const calGrid = document.getElementById('cal-grid');
+	const calPrev = document.getElementById('cal-prev');
+	const calNext = document.getElementById('cal-next');
+	const calCancel = document.getElementById('cal-cancel');
+
+	let calViewDate = new Date(); // Month currently being viewed in calendar
+	let calOnSelect = null;
+
+	function openCalendarDialog(initialDateStr, onSelect) {
+		calOnSelect = onSelect;
+
+		// Parse initial date (dd-mm-yyyy)
+		const parts = initialDateStr.split('-');
+		calViewDate = new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, 1);
+
+		renderCalendar();
+		calDialog.showModal();
+	}
+
+	function renderCalendar() {
+		calGrid.innerHTML = '';
+		const year = calViewDate.getFullYear();
+		const month = calViewDate.getMonth();
+
+		calMonthLabel.textContent = calViewDate.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' }).toLowerCase();
+
+		// Days with logs for highlighting
+		const loggedDates = new Set();
+		data.exercises.forEach(ex => {
+			if (ex.logs) ex.logs.forEach(l => loggedDates.add(l.date));
+		});
+
+		const todayStr = new Date().toLocaleDateString('en-GB').replace(/\//g, '-');
+		const selectedStr = homeLogsViewDate || todayStr;
+
+		// Start of month
+		const firstDay = new Date(year, month, 1).getDay();
+		const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+		// Adjust for Monday start (JS getDay is 0 for Sun)
+		const startOffset = (firstDay === 0) ? 6 : firstDay - 1;
+
+		// Empty slots before 1st
+		for (let i = 0; i < startOffset; i++) {
+			const div = document.createElement('div');
+			div.className = 'cal-day empty';
+			calGrid.appendChild(div);
+		}
+
+		// Day slots
+		for (let d = 1; d <= daysInMonth; d++) {
+			const div = document.createElement('div');
+			div.className = 'cal-day';
+			div.textContent = d;
+
+			const dateStr = `${d.toString().padStart(2, '0')}-${(month + 1).toString().padStart(2, '0')}-${year}`;
+
+			if (dateStr === todayStr) div.classList.add('today');
+			if (dateStr === selectedStr) div.classList.add('selected');
+			if (loggedDates.has(dateStr)) div.classList.add('has-logs');
+
+			div.addEventListener('click', () => {
+				calDialog.close();
+				if (calOnSelect) calOnSelect(dateStr);
+			});
+
+			calGrid.appendChild(div);
+		}
+	}
+
+	calPrev.addEventListener('click', () => {
+		calViewDate.setMonth(calViewDate.getMonth() - 1);
+		renderCalendar();
+	});
+
+	calNext.addEventListener('click', () => {
+		calViewDate.setMonth(calViewDate.getMonth() + 1);
+		renderCalendar();
+	});
+
+	calCancel.addEventListener('click', () => calDialog.close());
+
+
+	function renderInlineAdd(listContainer, onSave, onCancel) {
+		if (listContainer.querySelector('.inline-add-row')) return;
+
+		const row = document.createElement('div');
+		row.className = 'list-item inline-add-row';
+
+		const input = document.createElement('input');
+		input.type = 'text';
+		input.className = 'inline-input';
+		input.placeholder = 'Name...';
+		input.setAttribute('autocapitalize', 'none');
+
+		const actions = document.createElement('div');
+		actions.className = 'inline-actions';
+
+		const saveBtn = document.createElement('span');
+		saveBtn.className = 'material-icons-outlined inline-btn inline-save';
+		saveBtn.textContent = 'check';
+
+		const cancelBtn = document.createElement('span');
+		cancelBtn.className = 'material-icons-outlined inline-btn inline-cancel';
+		cancelBtn.textContent = 'close';
+
+		actions.appendChild(saveBtn);
+		actions.appendChild(cancelBtn);
+		row.appendChild(input);
+		row.appendChild(actions);
+
+		listContainer.prepend(row);
+		input.focus();
+
+		saveBtn.addEventListener('click', () => {
+			const val = input.value.trim();
+			if (val) {
+				onSave(val);
+			} else {
+				onCancel();
+			}
+		});
+
+		cancelBtn.addEventListener('click', () => onCancel());
+	}
+
+	function setupReorderable(container, array, onReorder) {
+		let draggedItem = null;
+
+		Array.from(container.children).forEach(child => {
+			// Disable native HTML5 drag on touch devices to prevent conflicts
+			if (!('ontouchstart' in window)) {
+				child.draggable = true;
+			}
+
+			// --- Desktop Drag & Drop ---
+			child.addEventListener('dragstart', (e) => {
+				draggedItem = child;
+				e.dataTransfer.effectAllowed = 'move';
+				if (e.dataTransfer.setData) e.dataTransfer.setData('text/plain', '');
+				setTimeout(() => child.style.opacity = '0.5', 0);
+			});
+
+			child.addEventListener('dragend', () => {
+				if (draggedItem) {
+					draggedItem.style.opacity = '1';
+				}
+				draggedItem = null;
+			});
+
+			child.addEventListener('dragover', (e) => {
+				e.preventDefault();
+				e.dataTransfer.dropEffect = 'move';
+
+				if (child === draggedItem || !draggedItem) return;
+
+				const rect = child.getBoundingClientRect();
+				const midpoint = rect.top + rect.height / 2;
+				if (e.clientY < midpoint) {
+					container.insertBefore(draggedItem, child);
+				} else {
+					container.insertBefore(draggedItem, child.nextSibling);
+				}
+			});
+
+			child.addEventListener('drop', (e) => {
+				e.preventDefault();
+				if (draggedItem) {
+					draggedItem.style.opacity = '1';
+				}
+				const newArray = [];
+				Array.from(container.children).forEach(c => {
+					const idx = parseInt(c.dataset.index, 10);
+					if (!isNaN(idx)) {
+						newArray.push(array[idx]);
+					}
+				});
+				onReorder(newArray);
+			});
+
+			// --- Mobile Touch Drag & Drop ---
+			let pressTimer = null;
+			let isDragging = false;
+			let wasDragging = false;
+
+			child.addEventListener('touchstart', (e) => {
+				if (e.touches.length !== 1) return;
+				pressTimer = setTimeout(() => {
+					isDragging = true;
+					draggedItem = child;
+					child.style.opacity = '0.5';
+					if (navigator.vibrate) navigator.vibrate(50);
+				}, 400); // 400ms long press to activate drag
+			}, { passive: true });
+
+			child.addEventListener('contextmenu', (e) => {
+				if (isDragging) {
+					e.preventDefault();
+				}
+			});
+
+			child.addEventListener('touchmove', (e) => {
+				if (!isDragging || !draggedItem) {
+					clearTimeout(pressTimer);
+					return;
+				}
+				e.preventDefault(); // Prevent scrolling
+
+				const touch = e.touches[0];
+				const target = document.elementFromPoint(touch.clientX, touch.clientY);
+				if (!target) return;
+
+				let overItem = target;
+				while (overItem && overItem.parentNode !== container) {
+					overItem = overItem.parentNode;
+				}
+
+				if (overItem && overItem !== draggedItem && overItem.parentNode === container) {
+					const rect = overItem.getBoundingClientRect();
+					const midpoint = rect.top + rect.height / 2;
+					if (touch.clientY < midpoint) {
+						container.insertBefore(draggedItem, overItem);
+					} else {
+						container.insertBefore(draggedItem, overItem.nextSibling);
+					}
+				}
+			}, { passive: false });
+
+			const endTouch = () => {
+				clearTimeout(pressTimer);
+				if (isDragging) {
+					isDragging = false;
+					wasDragging = true;
+					setTimeout(() => wasDragging = false, 50);
+
+					if (draggedItem) draggedItem.style.opacity = '1';
+					draggedItem = null;
+
+					const newArray = [];
+					Array.from(container.children).forEach(c => {
+						const idx = parseInt(c.dataset.index, 10);
+						if (!isNaN(idx)) newArray.push(array[idx]);
+					});
+					onReorder(newArray);
+				}
+			};
+
+			child.addEventListener('touchend', endTouch);
+			child.addEventListener('touchcancel', endTouch);
+
+			child.addEventListener('click', (e) => {
+				if (wasDragging) {
+					e.stopPropagation();
+					e.preventDefault();
+				}
+			}, true); // Capture phase to intercept clicks before children
+		});
+	}
+
+	function addLongPressListener(element, callback) {
+		let timer;
+		let isLongPress = false;
+		const delay = 600;
+
+		const start = (e) => {
+			if (e.type === 'touchstart' && e.touches.length > 1) return;
+			isLongPress = false;
+			timer = setTimeout(() => {
+				isLongPress = true;
+				if (navigator.vibrate) navigator.vibrate(50);
+				callback(e);
+			}, delay);
+		};
+
+		const cancel = () => {
+			clearTimeout(timer);
+		};
+
+		element.addEventListener('mousedown', start);
+		element.addEventListener('touchstart', start, { passive: true });
+		element.addEventListener('mouseup', cancel);
+		element.addEventListener('mouseleave', cancel);
+		element.addEventListener('touchend', cancel);
+		element.addEventListener('touchmove', cancel);
+
+		element.addEventListener('click', (e) => {
+			if (isLongPress) {
+				e.preventDefault();
+				e.stopPropagation();
+			}
+		}, true);
+	}
+
+	function renderInlineRename(elementToReplace, initialValue, onSave) {
+		const parent = elementToReplace.parentNode;
+		if (parent.querySelector('.inline-edit-row')) return;
+
+		const originalDisplay = elementToReplace.style.display;
+
+		// If it's a header title, we might want to hide the action buttons too
+		const siblingButtons = parent.querySelector('div[style*="display:flex"]');
+		const originalButtonsDisplay = siblingButtons ? siblingButtons.style.display : null;
+
+		elementToReplace.style.display = 'none';
+		if (siblingButtons) siblingButtons.style.display = 'none';
+
+		const row = document.createElement('div');
+		row.className = 'inline-edit-row';
+
+		const input = document.createElement('input');
+		input.type = 'text';
+		input.className = 'inline-input';
+		input.value = initialValue;
+		input.setAttribute('autocapitalize', 'none');
+
+		const actions = document.createElement('div');
+		actions.className = 'inline-actions';
+
+		const saveBtn = document.createElement('span');
+		saveBtn.className = 'material-icons-outlined inline-btn inline-save';
+		saveBtn.textContent = 'check';
+
+		const cancelBtn = document.createElement('span');
+		cancelBtn.className = 'material-icons-outlined inline-btn inline-cancel';
+		cancelBtn.textContent = 'close';
+
+		actions.appendChild(saveBtn);
+		actions.appendChild(cancelBtn);
+		row.appendChild(input);
+		row.appendChild(actions);
+
+		parent.insertBefore(row, elementToReplace.nextSibling);
+		input.focus();
+		input.select();
+
+		const finish = (success) => {
+			row.remove();
+			elementToReplace.style.display = originalDisplay;
+			if (siblingButtons) siblingButtons.style.display = originalButtonsDisplay;
+
+			if (success) {
+				const val = input.value.trim();
+				if (val && val !== initialValue) {
+					onSave(val);
+				}
+			}
+		};
+
+		saveBtn.addEventListener('click', (e) => {
+			e.stopPropagation();
+			finish(true);
+		});
+		cancelBtn.addEventListener('click', (e) => {
+			e.stopPropagation();
+			finish(false);
+		});
+		input.addEventListener('keydown', (e) => {
+			if (e.key === 'Enter') finish(true);
+			if (e.key === 'Escape') finish(false);
+		});
+		input.addEventListener('click', (e) => e.stopPropagation());
+	}
+
+	function renameExercise(oldName, newName) {
+		if (!newName || oldName === newName) return;
+		const ex = data.exercises.find(e => e.name === oldName);
+		if (ex) ex.name = newName;
+
+		data.routines.forEach(r => {
+			r.items = r.items.map(item => item === oldName ? newName : item);
+		});
+
+		data.programs.forEach(p => {
+			p.items = p.items.map(item => item === oldName ? newName : item);
+		});
+
+		if (data.home.history) {
+			Object.keys(data.home.history).forEach(date => {
+				data.home.history[date] = data.home.history[date].map(item => item === oldName ? newName : item);
+			});
+		}
+
+		if (currentExercise === oldName) currentExercise = newName;
+		saveData();
+	}
+
+	function renameRoutine(oldName, newName) {
+		if (!newName || oldName === newName) return;
+		const rout = data.routines.find(r => r.name === oldName);
+		if (rout) rout.name = newName;
+
+		data.programs.forEach(p => {
+			p.items = p.items.map(item => item === oldName ? newName : item);
+		});
+		saveData();
+	}
+
+	function renameProgram(oldName, newName) {
+		if (!newName || oldName === newName) return;
+		const prog = data.programs.find(p => p.name === oldName);
+		if (prog) prog.name = newName;
+		saveData();
+	}
+
+	function getExerciseObj(name) {
+		let ex = data.exercises.find(e => e.name === name);
+		if (!ex) {
+			ex = { name: name, types: ['kg', 'reps'], logs: [], notes: '' };
+			data.exercises.push(ex);
+		}
+		return ex;
+	}
+
+	function renderView(viewName) {
+		if (viewName === 'exercise-detail' && ['home', 'programs', 'routines', 'exercises'].includes(currentViewName)) {
+			exerciseReturnView = currentViewName;
+		}
+		if (currentViewName === 'home' && viewName !== 'home') {
+			homeLogsViewDate = null; // reset to today when leaving home
+		}
+		currentViewName = viewName;
+
+		const template = document.getElementById(`view-${viewName}`);
+		if (!template) return;
+
+		navLinks.forEach(link => {
+			if (link.dataset.target === viewName) {
+				link.classList.add('active');
+			} else {
+				link.classList.remove('active');
+			}
+		});
+
+		const topNav = document.querySelector('.top-nav');
+		if (['home', 'programs', 'routines', 'exercises'].includes(viewName)) {
+			topNav.style.display = 'flex';
+		} else {
+			topNav.style.display = 'none';
+		}
+
+		mainContent.innerHTML = '';
+		const content = template.content.cloneNode(true);
+
+		if (viewName === 'home') {
+			const listContainer = content.getElementById('home-list');
+			const emptyState = content.getElementById('home-empty');
+			const dateDisplay = content.getElementById('home-date-display');
+
+			const todayStr = getCurrentDate();
+			const logsDate = homeLogsViewDate || todayStr;
+			const isViewingToday = logsDate === todayStr;
+
+			const itemsForDate = getHomeItemsForDate(logsDate);
+
+			if (dateDisplay) {
+				dateDisplay.textContent = isViewingToday ? todayStr : logsDate;
+				dateDisplay.style.cursor = 'pointer';
+				dateDisplay.addEventListener('click', () => {
+					openCalendarDialog(logsDate, (selected) => {
+						homeLogsViewDate = selected === todayStr ? null : selected;
+						renderView('home');
+					});
+				});
+			}
+
+			const tagsSpan = content.querySelector('.add-tags');
+			if (tagsSpan) {
+				if (!data.home.tags) data.home.tags = {};
+				const currentTags = data.home.tags[logsDate] || [];
+
+				tagsSpan.innerHTML = '';
+				if (currentTags.length > 0) {
+					currentTags.forEach(t => {
+						const s = document.createElement('span');
+						s.textContent = `#${t} `;
+						s.style.color = 'var(--text-dark)';
+						s.style.fontWeight = '600';
+						s.style.cursor = 'pointer';
+						s.addEventListener('click', (e) => {
+							e.stopPropagation();
+							data.home.tags[logsDate] = data.home.tags[logsDate].filter(x => x !== t);
+							saveData();
+							renderView('home');
+						});
+						tagsSpan.appendChild(s);
+					});
+				}
+
+				const addS = document.createElement('span');
+				addS.textContent = '<add tags>';
+				addS.style.cursor = 'pointer';
+				addS.addEventListener('click', (e) => {
+					e.stopPropagation();
+					const allTags = getAllTags().map(t => ({ label: `#${t}`, value: t }));
+					openSelectionDialog('Select a tag', allTags, (selection) => {
+						let val = typeof selection === 'string' ? selection : selection.value;
+						if (val) {
+							val = val.replace(/^#/, '').trim();
+							if (!data.home.tags[logsDate]) data.home.tags[logsDate] = [];
+							if (!data.home.tags[logsDate].includes(val)) {
+								data.home.tags[logsDate].push(val);
+								saveData();
+								renderView('home');
+							}
+						}
+					}, 'add new tag');
+				});
+				tagsSpan.appendChild(addS);
+			}
+
+			const mainAddBtn = content.querySelector('.btn-add');
+			if (mainAddBtn) {
+				mainAddBtn.addEventListener('click', () => {
+					const routines = data.routines.map(r => ({ label: `[routine] ${r.name}`, value: { type: 'routine', items: r.items } })).sort((a, b) => a.label.localeCompare(b.label));
+					const exercises = data.exercises.map(e => ({ label: e.name, value: { type: 'exercise', name: e.name } })).sort((a, b) => a.label.localeCompare(b.label));
+					const allOptions = [...routines, ...exercises];
+
+					openSelectionDialog('Add routine or exercise', allOptions, (selection) => {
+						if (typeof selection === 'string') {
+							itemsForDate.push(selection);
+							getExerciseObj(selection);
+						} else if (selection.type === 'routine') {
+							selection.items.forEach(exName => {
+								itemsForDate.push(exName);
+							});
+						} else {
+							itemsForDate.push(selection.name);
+						}
+						renderView('home');
+					}, 'add new exercise');
+				});
+			}
+
+			if (itemsForDate.length > 0) {
+				const homeContainer = document.createElement('div');
+				itemsForDate.forEach((item, index) => {
+					const div = document.createElement('div');
+					div.className = 'list-item';
+					div.style.display = 'flex';
+					div.style.alignItems = 'center';
+
+					const textSpan = document.createElement('span');
+					textSpan.style.flex = '1';
+					textSpan.textContent = item;
+					div.appendChild(textSpan);
+
+					const rmBtn = document.createElement('button');
+					rmBtn.className = 'btn-remove-sm material-icons-outlined';
+					rmBtn.textContent = 'close';
+					rmBtn.addEventListener('click', (e) => {
+						e.stopPropagation();
+						itemsForDate.splice(index, 1);
+						renderView('home');
+					});
+					div.appendChild(rmBtn);
+
+					div.dataset.index = index;
+					div.addEventListener('click', () => {
+						currentExercise = item;
+						renderView('exercise-detail');
+					});
+					homeContainer.appendChild(div);
+				});
+				setupReorderable(homeContainer, itemsForDate, (newArr) => {
+					data.home.history[logsDate] = newArr;
+					renderView('home');
+				});
+				listContainer.appendChild(homeContainer);
+				emptyState.style.display = 'none';
+			} else {
+				emptyState.style.display = 'block';
+			}
+
+			// Render logs summary if setting is on
+			const showLogs = data.settings?.showHomeLogs !== false;
+			const dayLogsContainer = content.getElementById('home-day-logs');
+			if (dayLogsContainer && showLogs) {
+				// Collect all logs for the viewed date across all exercises
+				const todayLogs = [];
+				data.exercises.forEach(ex => {
+					if (ex.logs) {
+						ex.logs.forEach(log => {
+							if (log.date === logsDate) {
+								todayLogs.push({ ex, log });
+							}
+						});
+					}
+				});
+
+				if (todayLogs.length > 0) {
+					// Group by exercise, tracking earliest timestamp for sort
+					const byExercise = {};
+					todayLogs.forEach(({ ex, log }) => {
+						if (!byExercise[ex.name]) byExercise[ex.name] = { ex, logs: [], firstTs: Infinity };
+						byExercise[ex.name].logs.push(log);
+						const ts = log.ts || 0;
+						if (ts < byExercise[ex.name].firstTs) byExercise[ex.name].firstTs = ts;
+					});
+
+					// Sort exercises by time of first set logged
+					const sortedExercises = Object.entries(byExercise)
+						.sort(([, a], [, b]) => a.firstTs - b.firstTs);
+
+					const logsSection = document.createElement('div');
+					logsSection.style.marginTop = '16px';
+
+					const logsHeading = document.createElement('div');
+					logsHeading.className = 'settings-subheading';
+					logsHeading.style.marginTop = '0';
+					logsHeading.textContent = isViewingToday ? "today's sets" : `sets on ${logsDate}`;
+					logsSection.appendChild(logsHeading);
+
+					sortedExercises.forEach(([exName, { ex, logs }]) => {
+						const exHeader = document.createElement('div');
+						exHeader.className = 'day-header';
+						exHeader.style.cursor = 'pointer';
+						exHeader.innerHTML = `<span>${exName}</span>`;
+						exHeader.addEventListener('click', () => {
+							currentExercise = exName;
+							renderView('exercise-detail');
+						});
+						logsSection.appendChild(exHeader);
+
+						let workSetCount = 0;
+						logs.forEach(set => {
+							const setType = set.type || 's';
+							let setLabel;
+							if (setType === 'w') setLabel = 'W';
+							else if (setType === 'p') setLabel = 'P';
+							else { workSetCount++; setLabel = workSetCount.toString(); }
+
+							const setRow = document.createElement('div');
+							setRow.className = 'set-row';
+
+							const numSpan = document.createElement('span');
+							numSpan.className = 'set-num';
+							numSpan.textContent = setLabel;
+							setRow.appendChild(numSpan);
+
+							const metricsWrap = document.createElement('div');
+							metricsWrap.style.display = 'flex';
+							metricsWrap.style.gap = '12px';
+							metricsWrap.style.flex = '1';
+							metricsWrap.style.flexWrap = 'wrap';
+
+							Object.entries(set.data).forEach(([k, v]) => {
+								const s = document.createElement('span');
+								s.textContent = `${v} ${k}`;
+								metricsWrap.appendChild(s);
+							});
+
+							setRow.appendChild(metricsWrap);
+							logsSection.appendChild(setRow);
+						});
+					});
+
+					dayLogsContainer.appendChild(logsSection);
+				}
+			}
+		} else if (viewName === 'programs') {
+			const listContainer = content.getElementById('programs-list');
+			const emptyState = content.getElementById('programs-empty');
+
+			const mainAddBtn = content.querySelector('.main-add-row .btn-add');
+			if (mainAddBtn) {
+				mainAddBtn.addEventListener('click', () => {
+					emptyState.style.display = 'none';
+					renderInlineAdd(listContainer, (name) => {
+						data.programs.push({ name: name, items: [] });
+						renderView('programs');
+					}, () => renderView('programs'));
+				});
+			}
+
+			if (data.programs.length > 0) {
+				const sortedProgs = [...data.programs].sort((a, b) => a.name.localeCompare(b.name));
+				sortedProgs.forEach(prog => {
+					const progContainer = document.createElement('div');
+
+					const header = document.createElement('div');
+					header.className = 'list-header';
+					header.innerHTML = `<span class="list-header-title" style="cursor: pointer;">${prog.name}</span> <div style="display:flex"><button class="btn-add-sm">+</button><button class="btn-remove-sm material-icons-outlined">close</button></div>`;
+					progContainer.appendChild(header);
+
+					const titleSpan = header.querySelector('.list-header-title');
+					addLongPressListener(titleSpan, () => {
+						renderInlineRename(titleSpan, prog.name, (newName) => {
+							renameProgram(prog.name, newName);
+							renderView('programs');
+						});
+					});
+
+					const headerRmBtn = header.querySelector('.btn-remove-sm');
+					headerRmBtn.addEventListener('click', () => {
+						if (confirm(`Delete program "${prog.name}"?`)) {
+							data.programs = data.programs.filter(p => p.name !== prog.name);
+							renderView('programs');
+						}
+					});
+
+					const headerBtn = header.querySelector('.btn-add-sm');
+					headerBtn.addEventListener('click', () => {
+						openSelectionDialog(`Add routine to "${prog.name}"`, data.routines.map(r => r.name), (name) => {
+							prog.items.push(name);
+							if (!data.routines.find(r => r.name === name)) {
+								data.routines.push({ name: name, items: [] });
+							}
+							renderView('programs');
+						});
+					});
+
+					const routinesContainer = document.createElement('div');
+					prog.items.forEach((routineName, index) => {
+						const rWrapper = document.createElement('div');
+						rWrapper.dataset.index = index;
+
+						let rout = data.routines.find(r => r.name === routineName);
+						if (!rout) {
+							rout = { name: routineName, items: [] };
+							data.routines.push(rout);
+						}
+
+						const rHeader = document.createElement('div');
+						rHeader.className = 'list-header';
+						rHeader.style.marginTop = '8px';
+						rHeader.style.paddingLeft = '24px';
+						rHeader.innerHTML = `<span class="list-header-title">${routineName}</span> <div style="display:flex"><button class="btn-add-sm">+</button><button class="btn-remove-sm material-icons-outlined">close</button></div>`;
+						rWrapper.appendChild(rHeader);
+
+						const rRmBtn = rHeader.querySelector('.btn-remove-sm');
+						rRmBtn.addEventListener('click', (e) => {
+							e.stopPropagation();
+							if (confirm(`Remove routine "${routineName}" from program?`)) {
+								prog.items.splice(index, 1);
+								renderView('programs');
+							}
+						});
+
+						const rHeaderBtn = rHeader.querySelector('.btn-add-sm');
+						rHeaderBtn.addEventListener('click', () => {
+							openSelectionDialog(`Add exercise to "${routineName}"`, data.exercises.map(e => e.name), (name) => {
+								rout.items.push(name);
+								if (!data.exercises.find(e => e.name === name)) {
+									getExerciseObj(name);
+								}
+								renderView('programs');
+							});
+						});
+
+						rout.items.forEach((exName, exIndex) => {
+							const div = document.createElement('div');
+							div.className = 'list-item';
+							div.style.display = 'flex';
+							div.style.alignItems = 'center';
+
+							const textSpan = document.createElement('span');
+							textSpan.style.flex = '1';
+							textSpan.style.textAlign = 'right';
+							textSpan.textContent = exName;
+							div.appendChild(textSpan);
+
+							const rmBtn = document.createElement('button');
+							rmBtn.className = 'btn-remove-sm material-icons-outlined';
+							rmBtn.textContent = 'close';
+							rmBtn.addEventListener('click', (e) => {
+								e.stopPropagation();
+								if (confirm(`Remove exercise "${exName}" from routine?`)) {
+									rout.items.splice(exIndex, 1);
+									renderView('programs');
+								}
+							});
+							div.appendChild(rmBtn);
+
+							div.addEventListener('click', () => {
+								currentExercise = exName;
+								renderView('exercise-detail');
+							});
+							rWrapper.appendChild(div);
+						});
+
+						routinesContainer.appendChild(rWrapper);
+					});
+
+					setupReorderable(routinesContainer, prog.items, (newArr) => {
+						prog.items = newArr;
+						renderView('programs');
+					});
+
+					progContainer.appendChild(routinesContainer);
+					listContainer.appendChild(progContainer);
+				});
+				emptyState.style.display = 'none';
+			} else {
+				emptyState.style.display = 'block';
+			}
+		} else if (viewName === 'routines') {
+			const listContainer = content.getElementById('routines-list');
+			const emptyState = content.getElementById('routines-empty');
+
+			const mainAddBtn = content.querySelector('.main-add-row .btn-add');
+			if (mainAddBtn) {
+				mainAddBtn.addEventListener('click', () => {
+					emptyState.style.display = 'none';
+					renderInlineAdd(listContainer, (name) => {
+						if (!data.routines.find(r => r.name === name)) {
+							data.routines.push({ name: name, items: [] });
+						}
+						renderView('routines');
+					}, () => renderView('routines'));
+				});
+			}
+
+			if (data.routines.length > 0) {
+				const sortedRouts = [...data.routines].sort((a, b) => a.name.localeCompare(b.name));
+				sortedRouts.forEach(rout => {
+					const routContainer = document.createElement('div');
+
+					const header = document.createElement('div');
+					header.className = 'list-header';
+					header.innerHTML = `<span class="list-header-title" style="cursor: pointer;">${rout.name}</span> <div style="display:flex"><button class="btn-add-sm">+</button><button class="btn-remove-sm material-icons-outlined">close</button></div>`;
+					routContainer.appendChild(header);
+
+					const titleSpan = header.querySelector('.list-header-title');
+					addLongPressListener(titleSpan, () => {
+						renderInlineRename(titleSpan, rout.name, (newName) => {
+							renameRoutine(rout.name, newName);
+							renderView('routines');
+						});
+					});
+
+					const headerRmBtn = header.querySelector('.btn-remove-sm');
+					headerRmBtn.addEventListener('click', () => {
+						if (confirm(`Delete routine "${rout.name}" completely?`)) {
+							data.routines = data.routines.filter(r => r.name !== rout.name);
+							data.programs.forEach(p => {
+								p.items = p.items.filter(rName => rName !== rout.name);
+							});
+							renderView('routines');
+						}
+					});
+
+					const headerBtn = header.querySelector('.btn-add-sm');
+					headerBtn.addEventListener('click', () => {
+						openSelectionDialog(`Add exercise to "${rout.name}"`, data.exercises.map(e => e.name), (name) => {
+							rout.items.push(name);
+							if (!data.exercises.find(e => e.name === name)) {
+								getExerciseObj(name);
+							}
+							renderView('routines');
+						});
+					});
+
+					const itemsContainer = document.createElement('div');
+					rout.items.forEach((item, index) => {
+						const div = document.createElement('div');
+						div.className = 'list-item';
+						div.style.display = 'flex';
+						div.style.alignItems = 'center';
+
+						const textSpan = document.createElement('span');
+						textSpan.style.flex = '1';
+						textSpan.style.textAlign = 'right';
+						textSpan.textContent = item;
+						div.appendChild(textSpan);
+
+						const rmBtn = document.createElement('button');
+						rmBtn.className = 'btn-remove-sm material-icons-outlined';
+						rmBtn.textContent = 'close';
+						rmBtn.addEventListener('click', (e) => {
+							e.stopPropagation();
+							if (confirm(`Remove exercise "${item}" from routine?`)) {
+								rout.items.splice(index, 1);
+								renderView('routines');
+							}
+						});
+						div.appendChild(rmBtn);
+
+						div.dataset.index = index;
+						div.addEventListener('click', () => {
+							currentExercise = item;
+							renderView('exercise-detail');
+						});
+						itemsContainer.appendChild(div);
+					});
+
+					setupReorderable(itemsContainer, rout.items, (newArr) => {
+						rout.items = newArr;
+						renderView('routines');
+					});
+
+					routContainer.appendChild(itemsContainer);
+					listContainer.appendChild(routContainer);
+				});
+				emptyState.style.display = 'none';
+			} else {
+				emptyState.style.display = 'block';
+			}
+		} else if (viewName === 'exercises') {
+			const listContainer = content.getElementById('exercises-list');
+			const emptyState = content.getElementById('exercises-empty');
+
+			const mainAddBtn = content.querySelector('.main-add-row .btn-add');
+			if (mainAddBtn) {
+				mainAddBtn.addEventListener('click', () => {
+					emptyState.style.display = 'none';
+					renderInlineAdd(listContainer, (name) => {
+						if (!data.exercises.find(e => e.name === name)) {
+							getExerciseObj(name);
+						}
+						renderView('exercises');
+					}, () => renderView('exercises'));
+				});
+			}
+
+			if (data.exercises.length > 0) {
+				const sorted = [...data.exercises].sort((a, b) => a.name.localeCompare(b.name));
+				sorted.forEach(item => {
+					const div = document.createElement('div');
+					div.className = 'list-item';
+					div.style.display = 'flex';
+					div.style.alignItems = 'center';
+
+					const textSpan = document.createElement('span');
+					textSpan.style.flex = '1';
+					textSpan.textContent = item.name;
+					textSpan.style.cursor = 'pointer';
+					div.appendChild(textSpan);
+
+					addLongPressListener(textSpan, () => {
+						renderInlineRename(textSpan, item.name, (newName) => {
+							renameExercise(item.name, newName);
+							renderView('exercises');
+						});
+					});
+
+					const rmBtn = document.createElement('button');
+					rmBtn.className = 'btn-remove-sm material-icons-outlined';
+					rmBtn.textContent = 'close';
+					rmBtn.addEventListener('click', (e) => {
+						e.stopPropagation();
+						if (confirm(`Delete exercise "${item.name}" completely?`)) {
+							data.exercises = data.exercises.filter(ex => ex.name !== item.name);
+							data.routines.forEach(r => {
+								r.items = r.items.filter(exName => exName !== item.name);
+							});
+							renderView('exercises');
+						}
+					});
+					div.appendChild(rmBtn);
+
+					div.addEventListener('click', () => {
+						currentExercise = item.name;
+						renderView('exercise-detail');
+					});
+					listContainer.appendChild(div);
+				});
+				emptyState.style.display = 'none';
+			} else {
+				emptyState.style.display = 'block';
+			}
+		} else if (viewName === 'exercise-detail') {
+			const titleSpan = content.querySelector('.ex-name');
+			if (titleSpan) titleSpan.textContent = currentExercise;
+
+			const backBtn = content.querySelector('.back-btn');
+			backBtn.addEventListener('click', () => renderView(exerciseReturnView));
+
+			const editIcon = content.querySelector('.edit-icon');
+			if (editIcon) {
+				editIcon.addEventListener('click', () => renderView('exercise-edit'));
+			}
+
+			const exObj = getExerciseObj(currentExercise);
+
+			// Tab switching logic
+			const tabLinks = content.querySelectorAll('.d-nav-link');
+			const tabLogs = content.getElementById('tab-logs');
+			const tabNotes = content.getElementById('tab-notes');
+			const tabData = content.getElementById('tab-data');
+
+			tabLinks.forEach(link => {
+				link.addEventListener('click', (e) => {
+					e.preventDefault();
+					tabLinks.forEach(l => l.classList.remove('active'));
+					link.classList.add('active');
+
+					if (link.dataset.tab === 'logs') {
+						tabLogs.style.display = 'block';
+						tabNotes.style.display = 'none';
+						tabData.style.display = 'none';
+					} else if (link.dataset.tab === 'notes') {
+						tabLogs.style.display = 'none';
+						tabNotes.style.display = 'block';
+						tabData.style.display = 'none';
+					} else if (link.dataset.tab === 'data') {
+						tabLogs.style.display = 'none';
+						tabNotes.style.display = 'none';
+						tabData.style.display = 'block';
+						renderDataTab();
+					} else {
+						tabLogs.style.display = 'none';
+						tabNotes.style.display = 'none';
+						tabData.style.display = 'none';
+					}
+				});
+			});
+
+			function renderDataTab() {
+				const recordsList = document.getElementById('exercise-records-list');
+				const statsList = document.getElementById('exercise-stats-list');
+				if (!recordsList || !statsList) return;
+
+				recordsList.innerHTML = '';
+				statsList.innerHTML = '';
+
+				if (!exObj.logs || exObj.logs.length === 0) {
+					recordsList.innerHTML = '<div class="empty-state-row" style="border:none">no data available</div>';
+					return;
+				}
+
+				let heaviestWeight = 0;
+				let heaviestWeightLog = null;
+				let best1RM = 0;
+				let best1RMLog = null;
+				let bestSetVolume = 0;
+				let bestSetVolumeLog = null;
+				let bestSessionVolume = 0;
+				let bestSessionVolumeDate = null;
+
+				let totalVolume = 0;
+				let totalSets = exObj.logs.length;
+
+				const sessionVolumes = {}; // date -> total volume
+
+				exObj.logs.forEach(log => {
+					const w = parseFloat(log.data.kg);
+					const r = parseInt(log.data.reps, 10);
+
+					if (!isNaN(w)) {
+						if (w > heaviestWeight) {
+							heaviestWeight = w;
+							heaviestWeightLog = log;
+						}
+
+						if (!isNaN(r) && r > 0) {
+							const vol = w * r;
+							totalVolume += vol;
+							if (vol > bestSetVolume) {
+								bestSetVolume = vol;
+								bestSetVolumeLog = log;
+							}
+
+							const oneRM = calculateOneRM(w, r);
+							if (oneRM > best1RM) {
+								best1RM = oneRM;
+								best1RMLog = log;
+							}
+
+							sessionVolumes[log.date] = (sessionVolumes[log.date] || 0) + vol;
+						}
+					}
+				});
+
+				Object.entries(sessionVolumes).forEach(([date, v]) => {
+					if (v > bestSessionVolume) {
+						bestSessionVolume = v;
+						bestSessionVolumeDate = date;
+					}
+				});
+
+				const createRecordItem = (label, value, log, date) => {
+					const div = document.createElement('div');
+					div.className = 'list-item';
+					div.style.display = 'flex';
+					div.style.flexDirection = 'column';
+					div.style.cursor = 'default';
+
+					let subText = '';
+					if (log) {
+						const details = Object.entries(log.data).map(([k, v]) => `${v}${k}`).join(' ');
+						subText = `<div style="font-size:11px; color:var(--text-light); margin-top:2px;">${details} on ${log.date}</div>`;
+					} else if (date) {
+						subText = `<div style="font-size:11px; color:var(--text-light); margin-top:2px;">on ${date}</div>`;
+					}
+
+					div.innerHTML = `
                 <div style="display:flex; justify-content:space-between; width:100%;">
                     <span>${label}</span>
                     <span style="font-weight:600">${value}</span>
                 </div>
                 ${subText}
               `;
-              return div;
-          };
+					return div;
+				};
 
-          const createStatItem = (label, value) => {
-              const div = document.createElement('div');
-              div.className = 'list-item';
-              div.style.display = 'flex';
-              div.style.justifyContent = 'space-between';
-              div.style.cursor = 'default';
-              div.innerHTML = `<span>${label}</span><span style="font-weight:600">${value}</span>`;
-              return div;
-          };
+				const createStatItem = (label, value) => {
+					const div = document.createElement('div');
+					div.className = 'list-item';
+					div.style.display = 'flex';
+					div.style.justifyContent = 'space-between';
+					div.style.cursor = 'default';
+					div.innerHTML = `<span>${label}</span><span style="font-weight:600">${value}</span>`;
+					return div;
+				};
 
-          recordsList.appendChild(createRecordItem('Heaviest Weight', heaviestWeight > 0 ? `${heaviestWeight} kg` : '-', heaviestWeightLog));
-          recordsList.appendChild(createRecordItem('Best 1RM', best1RM > 0 ? `${Math.round(best1RM)} kg` : '-', best1RMLog));
-          recordsList.appendChild(createRecordItem('Best Set Volume', bestSetVolume > 0 ? `${Math.round(bestSetVolume)} kg` : '-', bestSetVolumeLog));
-          recordsList.appendChild(createRecordItem('Best Session Volume', bestSessionVolume > 0 ? `${Math.round(bestSessionVolume)} kg` : '-', null, bestSessionVolumeDate));
+				recordsList.appendChild(createRecordItem('Heaviest Weight', heaviestWeight > 0 ? `${heaviestWeight} kg` : '-', heaviestWeightLog));
+				recordsList.appendChild(createRecordItem('Best 1RM', best1RM > 0 ? `${Math.round(best1RM)} kg` : '-', best1RMLog));
+				recordsList.appendChild(createRecordItem('Best Set Volume', bestSetVolume > 0 ? `${Math.round(bestSetVolume)} kg` : '-', bestSetVolumeLog));
+				recordsList.appendChild(createRecordItem('Best Session Volume', bestSessionVolume > 0 ? `${Math.round(bestSessionVolume)} kg` : '-', null, bestSessionVolumeDate));
 
-          statsList.appendChild(createStatItem('Total Volume', `${Math.round(totalVolume)} kg`));
-          statsList.appendChild(createStatItem('Total Sets', totalSets));
-          statsList.appendChild(createStatItem('Total Sessions', Object.keys(sessionVolumes).length));
+				statsList.appendChild(createStatItem('Total Volume', `${Math.round(totalVolume)} kg`));
+				statsList.appendChild(createStatItem('Total Sets', totalSets));
+				statsList.appendChild(createStatItem('Total Sessions', Object.keys(sessionVolumes).length));
 
-          // Additional metrics
-          let totalWeightSum = 0;
-          let totalRepsSum = 0;
-          let setsWithWeights = 0;
-          let setsWithReps = 0;
-          let lastDate = null;
+				// Additional metrics
+				let totalWeightSum = 0;
+				let totalRepsSum = 0;
+				let setsWithWeights = 0;
+				let setsWithReps = 0;
+				let lastDate = null;
 
-          exObj.logs.forEach(log => {
-              const w = parseFloat(log.data.kg);
-              const r = parseInt(log.data.reps, 10);
-              if (!isNaN(w)) {
-                  totalWeightSum += w;
-                  setsWithWeights++;
-              }
-              if (!isNaN(r)) {
-                  totalRepsSum += r;
-                  setsWithReps++;
-              }
-          });
-          
-          if (exObj.logs.length > 0) {
-              const sortedLogs = [...exObj.logs].sort((a,b) => {
-                  const da = a.date.split('-').reverse().join('');
-                  const db = b.date.split('-').reverse().join('');
-                  return db.localeCompare(da);
-              });
-              lastDate = sortedLogs[0].date;
-          }
+				exObj.logs.forEach(log => {
+					const w = parseFloat(log.data.kg);
+					const r = parseInt(log.data.reps, 10);
+					if (!isNaN(w)) {
+						totalWeightSum += w;
+						setsWithWeights++;
+					}
+					if (!isNaN(r)) {
+						totalRepsSum += r;
+						setsWithReps++;
+					}
+				});
 
-          if (setsWithWeights > 0) {
-              statsList.appendChild(createStatItem('Average Weight', `${(totalWeightSum / setsWithWeights).toFixed(1)} kg`));
-          }
-          if (setsWithReps > 0) {
-              statsList.appendChild(createStatItem('Average Reps', (totalRepsSum / setsWithReps).toFixed(1)));
-          }
-          if (lastDate) {
-              statsList.appendChild(createStatItem('Last Workout', lastDate));
-          }
-      }
+				if (exObj.logs.length > 0) {
+					const sortedLogs = [...exObj.logs].sort((a, b) => {
+						const da = a.date.split('-').reverse().join('');
+						const db = b.date.split('-').reverse().join('');
+						return db.localeCompare(da);
+					});
+					lastDate = sortedLogs[0].date;
+				}
 
-      // Notes textarea persistence
-      const notesArea = content.querySelector('.notes-textarea');
-      if (notesArea) {
-          notesArea.value = exObj.notes || '';
+				if (setsWithWeights > 0) {
+					statsList.appendChild(createStatItem('Average Weight', `${(totalWeightSum / setsWithWeights).toFixed(1)} kg`));
+				}
+				if (setsWithReps > 0) {
+					statsList.appendChild(createStatItem('Average Reps', (totalRepsSum / setsWithReps).toFixed(1)));
+				}
+				if (lastDate) {
+					statsList.appendChild(createStatItem('Last Workout', lastDate));
+				}
+			}
 
-          const autoResize = () => {
-              notesArea.style.height = '24px';
-              notesArea.style.height = Math.max(24, notesArea.scrollHeight) + 'px';
-          };
+			// Notes textarea persistence
+			const notesArea = content.querySelector('.notes-textarea');
+			if (notesArea) {
+				notesArea.value = exObj.notes || '';
 
-          notesArea.addEventListener('input', (e) => {
-              exObj.notes = e.target.value;
-              autoResize();
-              saveData(); // auto-save on type
-          });
+				const autoResize = () => {
+					notesArea.style.height = '24px';
+					notesArea.style.height = Math.max(24, notesArea.scrollHeight) + 'px';
+				};
 
-          setTimeout(autoResize, 0);
-      }
+				notesArea.addEventListener('input', (e) => {
+					exObj.notes = e.target.value;
+					autoResize();
+					saveData(); // auto-save on type
+				});
 
-      const logSection = content.querySelector('.log-input-section');
-      logSection.innerHTML = '';
+				setTimeout(autoResize, 0);
+			}
 
-      if (exObj.types.length > 0) {
-          const grid = document.createElement('div');
-          grid.style.display = 'grid';
-          grid.style.gridTemplateColumns = '20px 100px 100px 1fr';
-          grid.style.gap = '12px';
-          grid.style.alignItems = 'center';
-          grid.style.marginBottom = '16px';
+			const logSection = content.querySelector('.log-input-section');
+			logSection.innerHTML = '';
 
-          let currentSetType = 's';
-          let sLabelEl = null;
+			if (exObj.types.length > 0) {
+				const grid = document.createElement('div');
+				grid.style.display = 'grid';
+				grid.style.gridTemplateColumns = '20px 100px 100px 1fr';
+				grid.style.gap = '12px';
+				grid.style.alignItems = 'center';
+				grid.style.marginBottom = '16px';
 
-          exObj.types.forEach((t, i) => {
-              const row = Math.floor(i / 2) + 1;
-              const col = (i % 2) + 2;
+				let currentSetType = 's';
+				let sLabelEl = null;
 
-              if (i === 0) {
-                  const sLabel = document.createElement('span');
-                  sLabel.className = 'input-label';
-                  sLabel.textContent = 's';
-                  sLabel.style.gridColumn = '1';
-                  sLabel.style.gridRow = '1';
-                  sLabel.style.textAlign = 'right';
-                  sLabel.style.cursor = 'pointer';
-                  sLabel.style.userSelect = 'none';
-                  sLabel.addEventListener('click', () => {
-                      if (currentSetType === 's') {
-                          currentSetType = 'w';
-                      } else if (currentSetType === 'w') {
-                          currentSetType = 'p';
-                      } else {
-                          currentSetType = 's';
-                      }
-                      sLabel.textContent = currentSetType;
-                  });
-                  sLabelEl = sLabel;
-                  grid.appendChild(sLabel);
-              }
+				exObj.types.forEach((t, i) => {
+					const row = Math.floor(i / 2) + 1;
+					const col = (i % 2) + 2;
 
-              const wrapper = document.createElement('div');
-              wrapper.style.display = 'flex';
-              wrapper.style.alignItems = 'center';
-              wrapper.style.gap = '8px';
-              wrapper.style.gridColumn = col.toString();
-              wrapper.style.gridRow = row.toString();
+					if (i === 0) {
+						const sLabel = document.createElement('span');
+						sLabel.className = 'input-label';
+						sLabel.textContent = 's';
+						sLabel.style.gridColumn = '1';
+						sLabel.style.gridRow = '1';
+						sLabel.style.textAlign = 'right';
+						sLabel.style.cursor = 'pointer';
+						sLabel.style.userSelect = 'none';
+						sLabel.addEventListener('click', () => {
+							if (currentSetType === 's') {
+								currentSetType = 'w';
+							} else if (currentSetType === 'w') {
+								currentSetType = 'p';
+							} else {
+								currentSetType = 's';
+							}
+							sLabel.textContent = currentSetType;
+						});
+						sLabelEl = sLabel;
+						grid.appendChild(sLabel);
+					}
 
-              const inp = document.createElement('input');
-              inp.type = 'number';
-              inp.className = 'val-input dyn-val';
-              inp.dataset.type = t;
+					const wrapper = document.createElement('div');
+					wrapper.style.display = 'flex';
+					wrapper.style.alignItems = 'center';
+					wrapper.style.gap = '8px';
+					wrapper.style.gridColumn = col.toString();
+					wrapper.style.gridRow = row.toString();
 
-              const unit = document.createElement('span');
-              unit.className = 'unit';
-              unit.textContent = t;
+					const inp = document.createElement('input');
+					inp.type = 'number';
+					inp.className = 'val-input dyn-val';
+					inp.dataset.type = t;
 
-              wrapper.appendChild(inp);
-              wrapper.appendChild(unit);
-              grid.appendChild(wrapper);
-          });
+					const unit = document.createElement('span');
+					unit.className = 'unit';
+					unit.textContent = t;
 
-          const numRows = Math.ceil(exObj.types.length / 2);
-          const tagSpan = document.createElement('span');
-          tagSpan.className = 'add-tag-inline';
-          tagSpan.textContent = '<add tag>';
-          tagSpan.style.gridColumn = '4';
-          tagSpan.style.gridRow = numRows.toString();
-          tagSpan.style.textAlign = 'right';
-          tagSpan.style.cursor = 'pointer';
-          grid.appendChild(tagSpan);
+					wrapper.appendChild(inp);
+					wrapper.appendChild(unit);
+					grid.appendChild(wrapper);
+				});
 
-          let currentTags = [];
+				const numRows = Math.ceil(exObj.types.length / 2);
+				const tagSpan = document.createElement('span');
+				tagSpan.className = 'add-tag-inline';
+				tagSpan.textContent = '<add tag>';
+				tagSpan.style.gridColumn = '4';
+				tagSpan.style.gridRow = numRows.toString();
+				tagSpan.style.textAlign = 'right';
+				tagSpan.style.cursor = 'pointer';
+				grid.appendChild(tagSpan);
 
-          const renderTagSpan = () => {
-              tagSpan.innerHTML = '';
-              if (currentTags.length > 0) {
-                  currentTags.forEach(t => {
-                      const s = document.createElement('span');
-                      s.textContent = `#${t} `;
-                      s.style.color = 'var(--text-dark)';
-                      s.style.fontWeight = '600';
-                      s.style.cursor = 'pointer';
-                      s.addEventListener('click', (e) => {
-                          e.stopPropagation();
-                          currentTags = currentTags.filter(x => x !== t);
-                          renderTagSpan();
-                      });
-                      tagSpan.appendChild(s);
-                  });
-              }
-              const addS = document.createElement('span');
-              addS.textContent = '<add tag>';
-              addS.style.cursor = 'pointer';
-              addS.addEventListener('click', (e) => {
-                  e.stopPropagation();
-                  const allTags = getAllTags().map(t => ({ label: `#${t}`, value: t }));
-                  openSelectionDialog('Select a tag', allTags, (selection) => {
-                      let val = typeof selection === 'string' ? selection : selection.value;
-                      if (val) {
-                          val = val.replace(/^#/, '').trim();
-                          if (!currentTags.includes(val)) {
-                              currentTags.push(val);
-                              renderTagSpan();
-                          }
-                      }
-                  }, 'add new tag');
-              });
-              tagSpan.appendChild(addS);
-          };
-          renderTagSpan();
+				let currentTags = [];
 
-          logSection.appendChild(grid);
+				const renderTagSpan = () => {
+					tagSpan.innerHTML = '';
+					if (currentTags.length > 0) {
+						currentTags.forEach(t => {
+							const s = document.createElement('span');
+							s.textContent = `#${t} `;
+							s.style.color = 'var(--text-dark)';
+							s.style.fontWeight = '600';
+							s.style.cursor = 'pointer';
+							s.addEventListener('click', (e) => {
+								e.stopPropagation();
+								currentTags = currentTags.filter(x => x !== t);
+								renderTagSpan();
+							});
+							tagSpan.appendChild(s);
+						});
+					}
+					const addS = document.createElement('span');
+					addS.textContent = '<add tag>';
+					addS.style.cursor = 'pointer';
+					addS.addEventListener('click', (e) => {
+						e.stopPropagation();
+						const allTags = getAllTags().map(t => ({ label: `#${t}`, value: t }));
+						openSelectionDialog('Select a tag', allTags, (selection) => {
+							let val = typeof selection === 'string' ? selection : selection.value;
+							if (val) {
+								val = val.replace(/^#/, '').trim();
+								if (!currentTags.includes(val)) {
+									currentTags.push(val);
+									renderTagSpan();
+								}
+							}
+						}, 'add new tag');
+					});
+					tagSpan.appendChild(addS);
+				};
+				renderTagSpan();
 
-          const addBtn = document.createElement('button');
-          addBtn.className = 'btn-large-add';
-          addBtn.textContent = '+';
-          addBtn.addEventListener('click', () => {
-             const newLog = {};
-             let hasData = false;
-             grid.querySelectorAll('.dyn-val').forEach(inp => {
-                 if(inp.value) {
-                     newLog[inp.dataset.type] = inp.value;
-                     hasData = true;
-                 }
-             });
-             if (hasData) {
-                 const today = getCurrentDate();
-                 const logEntry = { date: today, ts: Date.now(), data: newLog, type: currentSetType };
+				logSection.appendChild(grid);
 
-                 let finalTags = new Set();
-                 if (data.home && data.home.tags && data.home.tags[today]) {
-                     data.home.tags[today].forEach(t => finalTags.add(t));
-                 }
-                 currentTags.forEach(t => finalTags.add(t));
+				const addBtn = document.createElement('button');
+				addBtn.className = 'btn-large-add';
+				addBtn.textContent = '+';
+				addBtn.addEventListener('click', () => {
+					const newLog = {};
+					let hasData = false;
+					grid.querySelectorAll('.dyn-val').forEach(inp => {
+						if (inp.value) {
+							newLog[inp.dataset.type] = inp.value;
+							hasData = true;
+						}
+					});
+					if (hasData) {
+						const today = getCurrentDate();
+						const logEntry = { date: today, ts: Date.now(), data: newLog, type: currentSetType };
 
-                 if (finalTags.size > 0) {
-                     logEntry.tags = Array.from(finalTags);
-                 }
+						let finalTags = new Set();
+						if (data.home && data.home.tags && data.home.tags[today]) {
+							data.home.tags[today].forEach(t => finalTags.add(t));
+						}
+						currentTags.forEach(t => finalTags.add(t));
 
-                 exObj.logs.push(logEntry);
-                 renderView('exercise-detail');
-             }
-          });
-          logSection.appendChild(addBtn);
-      }
+						if (finalTags.size > 0) {
+							logEntry.tags = Array.from(finalTags);
+						}
 
-      const historyList = content.querySelector('.history-list');
-      historyList.innerHTML = '';
-      if (exObj.logs && exObj.logs.length > 0) {
-          const grouped = {};
-          const logIndexMap = {};
-          exObj.logs.forEach((log, globalIdx) => {
-              if (!grouped[log.date]) grouped[log.date] = [];
-              logIndexMap[log.date + '_' + grouped[log.date].length] = globalIdx;
-              grouped[log.date].push(log);
-          });
+						exObj.logs.push(logEntry);
+						renderView('exercise-detail');
+					}
+				});
+				logSection.appendChild(addBtn);
+			}
 
-          const parseDateKey = (d) => {
-              const [dd, mm, yyyy] = d.split('-');
-              return new Date(`${yyyy}-${mm}-${dd}`).getTime();
-          };
-          const sortedDates = Object.keys(grouped).sort((a, b) => parseDateKey(b) - parseDateKey(a));
-          sortedDates.forEach(dateStr => {
-              const dayDiv = document.createElement('div');
-              dayDiv.className = 'history-day';
+			const historyList = content.querySelector('.history-list');
+			historyList.innerHTML = '';
+			if (exObj.logs && exObj.logs.length > 0) {
+				const grouped = {};
+				const logIndexMap = {};
+				exObj.logs.forEach((log, globalIdx) => {
+					if (!grouped[log.date]) grouped[log.date] = [];
+					logIndexMap[log.date + '_' + grouped[log.date].length] = globalIdx;
+					grouped[log.date].push(log);
+				});
 
-              // Compute common tags for this day
-              const daySets = grouped[dateStr];
-              let commonTags = [];
-              if (daySets.length > 0) {
-                  const firstTags = getSetTags(daySets[0]);
-                  commonTags = firstTags.filter(tag =>
-                      daySets.every(s => getSetTags(s).includes(tag))
-                  );
-              }
+				const parseDateKey = (d) => {
+					const [dd, mm, yyyy] = d.split('-');
+					return new Date(`${yyyy}-${mm}-${dd}`).getTime();
+				};
+				const sortedDates = Object.keys(grouped).sort((a, b) => parseDateKey(b) - parseDateKey(a));
+				sortedDates.forEach(dateStr => {
+					const dayDiv = document.createElement('div');
+					dayDiv.className = 'history-day';
 
-              const header = document.createElement('div');
-              header.className = 'day-header';
-              const todayStr = new Date().toLocaleDateString('en-GB').replace(/\//g, '-');
-              let headerText = dateStr === todayStr ? 'today' : dateStr;
-              if (commonTags.length > 0) {
-                  headerText += '  ' + commonTags.map(t => `#${t}`).join(' ');
-              }
-              header.innerHTML = `<span>${headerText}</span>`;
-              dayDiv.appendChild(header);
+					// Compute common tags for this day
+					const daySets = grouped[dateStr];
+					let commonTags = [];
+					if (daySets.length > 0) {
+						const firstTags = getSetTags(daySets[0]);
+						commonTags = firstTags.filter(tag =>
+							daySets.every(s => getSetTags(s).includes(tag))
+						);
+					}
 
-              let workSetCount = 0;
-              grouped[dateStr].forEach((set, localIdx) => {
-                  const globalIdx = logIndexMap[dateStr + '_' + localIdx];
-                  const setType = set.type || 's';
-                  let setLabel;
-                  if (setType === 'w') {
-                      setLabel = 'W';
-                  } else if (setType === 'p') {
-                      setLabel = 'P';
-                  } else {
-                      workSetCount++;
-                      setLabel = workSetCount.toString();
-                  }
+					const header = document.createElement('div');
+					header.className = 'day-header';
+					const todayStr = new Date().toLocaleDateString('en-GB').replace(/\//g, '-');
+					let headerText = dateStr === todayStr ? 'today' : dateStr;
+					if (commonTags.length > 0) {
+						headerText += '  ' + commonTags.map(t => `#${t}`).join(' ');
+					}
+					header.innerHTML = `<span>${headerText}</span>`;
+					dayDiv.appendChild(header);
 
-                  const setRow = document.createElement('div');
-                  setRow.className = 'set-row';
-                  setRow.style.cursor = 'pointer';
+					let workSetCount = 0;
+					grouped[dateStr].forEach((set, localIdx) => {
+						const globalIdx = logIndexMap[dateStr + '_' + localIdx];
+						const setType = set.type || 's';
+						let setLabel;
+						if (setType === 'w') {
+							setLabel = 'W';
+						} else if (setType === 'p') {
+							setLabel = 'P';
+						} else {
+							workSetCount++;
+							setLabel = workSetCount.toString();
+						}
 
-                  const numSpan = document.createElement('span');
-                  numSpan.className = 'set-num';
-                  numSpan.textContent = setLabel;
-                  setRow.appendChild(numSpan);
+						const setRow = document.createElement('div');
+						setRow.className = 'set-row';
+						setRow.style.cursor = 'pointer';
 
-                  const metricsGrid = document.createElement('div');
-                  metricsGrid.style.display = 'grid';
-                  metricsGrid.style.gridTemplateColumns = '100px 100px 1fr';
-                  metricsGrid.style.gap = '4px 12px';
-                  metricsGrid.style.flex = '1';
+						const numSpan = document.createElement('span');
+						numSpan.className = 'set-num';
+						numSpan.textContent = setLabel;
+						setRow.appendChild(numSpan);
 
-                  exObj.types.forEach(t => {
-                      const mSpan = document.createElement('span');
-                      if (set.data[t]) {
-                          mSpan.textContent = `${set.data[t]} ${t}`;
-                      }
-                      metricsGrid.appendChild(mSpan);
-                  });
+						const metricsGrid = document.createElement('div');
+						metricsGrid.style.display = 'grid';
+						metricsGrid.style.gridTemplateColumns = '100px 100px 1fr';
+						metricsGrid.style.gap = '4px 12px';
+						metricsGrid.style.flex = '1';
 
-                  // For legacy logs with removed types
-                  Object.keys(set.data).forEach(k => {
-                      if (!exObj.types.includes(k)) {
-                          const mSpan = document.createElement('span');
-                          mSpan.textContent = `${set.data[k]} ${k}`;
-                          metricsGrid.appendChild(mSpan);
-                      }
-                  });
+						exObj.types.forEach(t => {
+							const mSpan = document.createElement('span');
+							if (set.data[t]) {
+								mSpan.textContent = `${set.data[t]} ${t}`;
+							}
+							metricsGrid.appendChild(mSpan);
+						});
 
-                  // Add 1RM if only kg and reps (only for regular sets)
-                  const dataKeys = Object.keys(set.data);
-                  if (setType === 's' && dataKeys.length === 2 && dataKeys.includes('kg') && dataKeys.includes('reps')) {
-                      const w = parseFloat(set.data.kg);
-                      const r = parseInt(set.data.reps, 10);
-                      if (!isNaN(w) && !isNaN(r) && r > 0) {
-                          const oneRm = Math.round(calculateOneRM(w, r));
-                          const rmSpan = document.createElement('span');
-                          rmSpan.className = 'set-rm';
-                          rmSpan.textContent = `1rm ${oneRm}kg`;
-                          rmSpan.style.gridColumn = '3';
-                          rmSpan.style.gridRow = '1';
-                          rmSpan.style.textAlign = 'right';
-                          metricsGrid.appendChild(rmSpan);
-                      }
-                  }
-                  // Show only tags unique to this set (not the common day tags)
-                  const allSetTags = getSetTags(set);
-                  const uniqueTags = allSetTags.filter(t => !commonTags.includes(t));
+						// For legacy logs with removed types
+						Object.keys(set.data).forEach(k => {
+							if (!exObj.types.includes(k)) {
+								const mSpan = document.createElement('span');
+								mSpan.textContent = `${set.data[k]} ${k}`;
+								metricsGrid.appendChild(mSpan);
+							}
+						});
 
-                  if (uniqueTags.length > 0) {
-                      const tagDisplay = document.createElement('span');
-                      tagDisplay.className = 'set-tag';
-                      tagDisplay.style.color = 'var(--text-dark)';
-                      tagDisplay.style.fontSize = '12px';
-                      tagDisplay.style.fontWeight = '600';
-                      tagDisplay.textContent = uniqueTags.map(t => `#${t}`).join(' ');
-                      metricsGrid.appendChild(tagDisplay);
-                  }
-                  setRow.appendChild(metricsGrid);
+						// Add 1RM if only kg and reps (only for regular sets)
+						const dataKeys = Object.keys(set.data);
+						if (setType === 's' && dataKeys.length === 2 && dataKeys.includes('kg') && dataKeys.includes('reps')) {
+							const w = parseFloat(set.data.kg);
+							const r = parseInt(set.data.reps, 10);
+							if (!isNaN(w) && !isNaN(r) && r > 0) {
+								const oneRm = Math.round(calculateOneRM(w, r));
+								const rmSpan = document.createElement('span');
+								rmSpan.className = 'set-rm';
+								rmSpan.textContent = `1rm ${oneRm}kg`;
+								rmSpan.style.gridColumn = '3';
+								rmSpan.style.gridRow = '1';
+								rmSpan.style.textAlign = 'right';
+								metricsGrid.appendChild(rmSpan);
+							}
+						}
+						// Show only tags unique to this set (not the common day tags)
+						const allSetTags = getSetTags(set);
+						const uniqueTags = allSetTags.filter(t => !commonTags.includes(t));
 
-                  // Click to edit
-                  setRow.addEventListener('click', () => {
-                      // Replace setRow contents with edit form
-                      setRow.innerHTML = '';
-                      setRow.style.cursor = 'default';
-                      setRow.style.flexWrap = 'wrap';
-                      setRow.style.gap = '8px';
+						if (uniqueTags.length > 0) {
+							const tagDisplay = document.createElement('span');
+							tagDisplay.className = 'set-tag';
+							tagDisplay.style.color = 'var(--text-dark)';
+							tagDisplay.style.fontSize = '12px';
+							tagDisplay.style.fontWeight = '600';
+							tagDisplay.textContent = uniqueTags.map(t => `#${t}`).join(' ');
+							metricsGrid.appendChild(tagDisplay);
+						}
+						setRow.appendChild(metricsGrid);
 
-                      // Type toggle
-                      let editType = set.type || 's';
-                      const typeBtn = document.createElement('span');
-                      typeBtn.className = 'set-num';
-                      typeBtn.textContent = editType === 's' ? setLabel : editType.toUpperCase();
-                      typeBtn.style.cursor = 'pointer';
-                      typeBtn.style.userSelect = 'none';
-                      typeBtn.addEventListener('click', (e) => {
-                          e.stopPropagation();
-                          if (editType === 's') editType = 'w';
-                          else if (editType === 'w') editType = 'p';
-                          else editType = 's';
-                          typeBtn.textContent = editType;
-                      });
-                      setRow.appendChild(typeBtn);
+						// Click to edit
+						setRow.addEventListener('click', () => {
+							// Replace setRow contents with edit form
+							setRow.innerHTML = '';
+							setRow.style.cursor = 'default';
+							setRow.style.flexWrap = 'wrap';
+							setRow.style.gap = '8px';
 
-                      // Editable inputs for each data key
-                      const editInputs = {};
-                      const allKeys = [...new Set([...exObj.types, ...Object.keys(set.data)])];
-                      const inputsWrap = document.createElement('div');
-                      inputsWrap.style.display = 'flex';
-                      inputsWrap.style.gap = '8px';
-                      inputsWrap.style.alignItems = 'center';
-                      inputsWrap.style.flex = '1';
-                      inputsWrap.style.flexWrap = 'wrap';
+							// Type toggle
+							let editType = set.type || 's';
+							const typeBtn = document.createElement('span');
+							typeBtn.className = 'set-num';
+							typeBtn.textContent = editType === 's' ? setLabel : editType.toUpperCase();
+							typeBtn.style.cursor = 'pointer';
+							typeBtn.style.userSelect = 'none';
+							typeBtn.addEventListener('click', (e) => {
+								e.stopPropagation();
+								if (editType === 's') editType = 'w';
+								else if (editType === 'w') editType = 'p';
+								else editType = 's';
+								typeBtn.textContent = editType;
+							});
+							setRow.appendChild(typeBtn);
 
-                      allKeys.forEach(k => {
-                          const inp = document.createElement('input');
-                          inp.type = 'number';
-                          inp.className = 'val-input';
-                          inp.value = set.data[k] || '';
-                          inp.style.width = '45px';
-                          const unit = document.createElement('span');
-                          unit.className = 'unit';
-                          unit.textContent = k;
-                          unit.style.fontSize = '12px';
-                          inputsWrap.appendChild(inp);
-                          inputsWrap.appendChild(unit);
-                          editInputs[k] = inp;
-                      });
-                      setRow.appendChild(inputsWrap);
+							// Editable inputs for each data key
+							const editInputs = {};
+							const allKeys = [...new Set([...exObj.types, ...Object.keys(set.data)])];
+							const inputsWrap = document.createElement('div');
+							inputsWrap.style.display = 'flex';
+							inputsWrap.style.gap = '8px';
+							inputsWrap.style.alignItems = 'center';
+							inputsWrap.style.flex = '1';
+							inputsWrap.style.flexWrap = 'wrap';
 
-                      // Tag editor
-                      let editTagsList = [...getSetTags(set)];
-                      const tagEditSpan = document.createElement('div');
-                      tagEditSpan.style.width = '100%';
-                      tagEditSpan.style.fontSize = '12px';
-                      tagEditSpan.style.display = 'flex';
-                      tagEditSpan.style.flexWrap = 'wrap';
-                      tagEditSpan.style.gap = '4px';
-                      tagEditSpan.style.alignItems = 'center';
+							allKeys.forEach(k => {
+								const inp = document.createElement('input');
+								inp.type = 'number';
+								inp.className = 'val-input';
+								inp.value = set.data[k] || '';
+								inp.style.width = '45px';
+								const unit = document.createElement('span');
+								unit.className = 'unit';
+								unit.textContent = k;
+								unit.style.fontSize = '12px';
+								inputsWrap.appendChild(inp);
+								inputsWrap.appendChild(unit);
+								editInputs[k] = inp;
+							});
+							setRow.appendChild(inputsWrap);
 
-                      const renderEditTags = () => {
-                          tagEditSpan.innerHTML = '';
-                          editTagsList.forEach(t => {
-                              const ts = document.createElement('span');
-                              ts.textContent = `#${t}`;
-                              ts.style.color = 'var(--text-dark)';
-                              ts.style.fontWeight = '600';
-                              ts.style.cursor = 'pointer';
-                              ts.addEventListener('click', (e) => {
-                                  e.stopPropagation();
-                                  editTagsList = editTagsList.filter(x => x !== t);
-                                  renderEditTags();
-                              });
-                              tagEditSpan.appendChild(ts);
-                          });
-                          const addTagBtn = document.createElement('span');
-                          addTagBtn.textContent = '<add tag>';
-                          addTagBtn.style.cursor = 'pointer';
-                          addTagBtn.style.fontSize = '12px';
-                          addTagBtn.addEventListener('click', (e) => {
-                              e.stopPropagation();
-                              const tagOptions = getAllTags().map(t => ({ label: `#${t}`, value: t }));
-                              openSelectionDialog('Select a tag', tagOptions, (selection) => {
-                                  let val = typeof selection === 'string' ? selection : selection.value;
-                                  if (val) {
-                                      val = val.replace(/^#/, '').trim();
-                                      if (!editTagsList.includes(val)) {
-                                          editTagsList.push(val);
-                                          renderEditTags();
-                                      }
-                                  }
-                              }, 'add new tag');
-                          });
-                          tagEditSpan.appendChild(addTagBtn);
-                      };
-                      renderEditTags();
-                      setRow.appendChild(tagEditSpan);
+							// Tag editor
+							let editTagsList = [...getSetTags(set)];
+							const tagEditSpan = document.createElement('div');
+							tagEditSpan.style.width = '100%';
+							tagEditSpan.style.fontSize = '12px';
+							tagEditSpan.style.display = 'flex';
+							tagEditSpan.style.flexWrap = 'wrap';
+							tagEditSpan.style.gap = '4px';
+							tagEditSpan.style.alignItems = 'center';
 
-                      // Action buttons
-                      const actionsWrap = document.createElement('div');
-                      actionsWrap.style.display = 'flex';
-                      actionsWrap.style.gap = '4px';
+							const renderEditTags = () => {
+								tagEditSpan.innerHTML = '';
+								editTagsList.forEach(t => {
+									const ts = document.createElement('span');
+									ts.textContent = `#${t}`;
+									ts.style.color = 'var(--text-dark)';
+									ts.style.fontWeight = '600';
+									ts.style.cursor = 'pointer';
+									ts.addEventListener('click', (e) => {
+										e.stopPropagation();
+										editTagsList = editTagsList.filter(x => x !== t);
+										renderEditTags();
+									});
+									tagEditSpan.appendChild(ts);
+								});
+								const addTagBtn = document.createElement('span');
+								addTagBtn.textContent = '<add tag>';
+								addTagBtn.style.cursor = 'pointer';
+								addTagBtn.style.fontSize = '12px';
+								addTagBtn.addEventListener('click', (e) => {
+									e.stopPropagation();
+									const tagOptions = getAllTags().map(t => ({ label: `#${t}`, value: t }));
+									openSelectionDialog('Select a tag', tagOptions, (selection) => {
+										let val = typeof selection === 'string' ? selection : selection.value;
+										if (val) {
+											val = val.replace(/^#/, '').trim();
+											if (!editTagsList.includes(val)) {
+												editTagsList.push(val);
+												renderEditTags();
+											}
+										}
+									}, 'add new tag');
+								});
+								tagEditSpan.appendChild(addTagBtn);
+							};
+							renderEditTags();
+							setRow.appendChild(tagEditSpan);
 
-                      const saveBtn = document.createElement('span');
-                      saveBtn.className = 'material-icons-outlined inline-btn inline-save';
-                      saveBtn.textContent = 'check';
-                      saveBtn.style.cursor = 'pointer';
-                      saveBtn.style.fontSize = '18px';
-                      saveBtn.addEventListener('click', (e) => {
-                          e.stopPropagation();
-                          const newData = {};
-                          allKeys.forEach(k => {
-                              if (editInputs[k].value) {
-                                  newData[k] = editInputs[k].value;
-                              }
-                          });
-                          exObj.logs[globalIdx].data = newData;
-                          exObj.logs[globalIdx].type = editType;
-                          if (editTagsList.length > 0) {
-                              exObj.logs[globalIdx].tags = editTagsList;
-                          } else {
-                              delete exObj.logs[globalIdx].tags;
-                              delete exObj.logs[globalIdx].tag;
-                          }
-                          saveData();
-                          renderView('exercise-detail');
-                      });
+							// Action buttons
+							const actionsWrap = document.createElement('div');
+							actionsWrap.style.display = 'flex';
+							actionsWrap.style.gap = '4px';
 
-                      const deleteBtn = document.createElement('span');
-                      deleteBtn.className = 'material-icons-outlined inline-btn inline-cancel';
-                      deleteBtn.textContent = 'delete';
-                      deleteBtn.style.cursor = 'pointer';
-                      deleteBtn.style.fontSize = '18px';
-                      deleteBtn.style.color = 'var(--danger-color)';
-                      deleteBtn.addEventListener('click', (e) => {
-                          e.stopPropagation();
-                          if (confirm('Delete this set?')) {
-                              exObj.logs.splice(globalIdx, 1);
-                              saveData();
-                              renderView('exercise-detail');
-                          }
-                      });
+							const saveBtn = document.createElement('span');
+							saveBtn.className = 'material-icons-outlined inline-btn inline-save';
+							saveBtn.textContent = 'check';
+							saveBtn.style.cursor = 'pointer';
+							saveBtn.style.fontSize = '18px';
+							saveBtn.addEventListener('click', (e) => {
+								e.stopPropagation();
+								const newData = {};
+								allKeys.forEach(k => {
+									if (editInputs[k].value) {
+										newData[k] = editInputs[k].value;
+									}
+								});
+								exObj.logs[globalIdx].data = newData;
+								exObj.logs[globalIdx].type = editType;
+								if (editTagsList.length > 0) {
+									exObj.logs[globalIdx].tags = editTagsList;
+								} else {
+									delete exObj.logs[globalIdx].tags;
+									delete exObj.logs[globalIdx].tag;
+								}
+								saveData();
+								renderView('exercise-detail');
+							});
 
-                      const cancelBtn = document.createElement('span');
-                      cancelBtn.className = 'material-icons-outlined inline-btn';
-                      cancelBtn.textContent = 'close';
-                      cancelBtn.style.cursor = 'pointer';
-                      cancelBtn.style.fontSize = '18px';
-                      cancelBtn.addEventListener('click', (e) => {
-                          e.stopPropagation();
-                          renderView('exercise-detail');
-                      });
+							const deleteBtn = document.createElement('span');
+							deleteBtn.className = 'material-icons-outlined inline-btn inline-cancel';
+							deleteBtn.textContent = 'delete';
+							deleteBtn.style.cursor = 'pointer';
+							deleteBtn.style.fontSize = '18px';
+							deleteBtn.style.color = 'var(--danger-color)';
+							deleteBtn.addEventListener('click', (e) => {
+								e.stopPropagation();
+								if (confirm('Delete this set?')) {
+									exObj.logs.splice(globalIdx, 1);
+									saveData();
+									renderView('exercise-detail');
+								}
+							});
 
-                      actionsWrap.appendChild(saveBtn);
-                      actionsWrap.appendChild(deleteBtn);
-                      actionsWrap.appendChild(cancelBtn);
-                      setRow.appendChild(actionsWrap);
-                  });
+							const cancelBtn = document.createElement('span');
+							cancelBtn.className = 'material-icons-outlined inline-btn';
+							cancelBtn.textContent = 'close';
+							cancelBtn.style.cursor = 'pointer';
+							cancelBtn.style.fontSize = '18px';
+							cancelBtn.addEventListener('click', (e) => {
+								e.stopPropagation();
+								renderView('exercise-detail');
+							});
 
-                  dayDiv.appendChild(setRow);
-              });
+							actionsWrap.appendChild(saveBtn);
+							actionsWrap.appendChild(deleteBtn);
+							actionsWrap.appendChild(cancelBtn);
+							setRow.appendChild(actionsWrap);
+						});
 
-              historyList.appendChild(dayDiv);
-          });
-      }
+						dayDiv.appendChild(setRow);
+					});
 
-    } else if (viewName === 'exercise-edit') {
-      const titleSpan = content.querySelector('.ex-name');
-      if (titleSpan) titleSpan.textContent = currentExercise;
+					historyList.appendChild(dayDiv);
+				});
+			}
 
-      const backBtn = content.querySelector('.back-btn');
-      backBtn.addEventListener('click', () => renderView('exercise-detail'));
+		} else if (viewName === 'exercise-edit') {
+			const titleSpan = content.querySelector('.ex-name');
+			if (titleSpan) titleSpan.textContent = currentExercise;
 
-      const exObj = getExerciseObj(currentExercise);
-      const editOptions = content.querySelector('.edit-options');
+			const backBtn = content.querySelector('.back-btn');
+			backBtn.addEventListener('click', () => renderView('exercise-detail'));
 
-      const defaultTypes = ['kg', 'reps', 'km', 'm', 'laps', 'time'];
-      const customTypes = data.settings.customTypes || [];
-      let allTypes = [...new Set([...defaultTypes, ...customTypes, ...exObj.types])];
+			const exObj = getExerciseObj(currentExercise);
+			const editOptions = content.querySelector('.edit-options');
 
-      function renderCheckboxes() {
-          editOptions.innerHTML = '';
-          for (let i = 0; i < allTypes.length; i += 2) {
-              const row = document.createElement('div');
-              row.className = 'edit-row';
-              
-              [allTypes[i], allTypes[i+1]].forEach(type => {
-                  if (!type) return;
-                  const label = document.createElement('label');
-                  label.className = 'custom-checkbox';
-                  
-                  const isChecked = exObj.types.includes(type);
-                  label.innerHTML = `
+			const defaultTypes = ['kg', 'reps', 'km', 'm', 'laps', 'time'];
+			const customTypes = data.settings.customTypes || [];
+			let allTypes = [...new Set([...defaultTypes, ...customTypes, ...exObj.types])];
+
+			function renderCheckboxes() {
+				editOptions.innerHTML = '';
+				for (let i = 0; i < allTypes.length; i += 2) {
+					const row = document.createElement('div');
+					row.className = 'edit-row';
+
+					[allTypes[i], allTypes[i + 1]].forEach(type => {
+						if (!type) return;
+						const label = document.createElement('label');
+						label.className = 'custom-checkbox';
+
+						const isChecked = exObj.types.includes(type);
+						label.innerHTML = `
                       <input type="checkbox" ${isChecked ? 'checked' : ''} data-type="${type}">
                       <span class="checkmark material-icons-outlined">${isChecked ? 'check_box' : 'check_box_outline_blank'}</span>
                       <span class="line-placeholder"></span>
                       ${type}
                   `;
-                  
-                  const cb = label.querySelector('input');
-                  const icon = label.querySelector('.checkmark');
-                  cb.addEventListener('change', (e) => {
-                      icon.textContent = e.target.checked ? 'check_box' : 'check_box_outline_blank';
-                  });
-                  
-                  if (!defaultTypes.includes(type)) {
-                      const delBtn = document.createElement('span');
-                      delBtn.className = 'material-icons-outlined';
-                      delBtn.style.fontSize = '14px';
-                      delBtn.style.marginLeft = 'auto';
-                      delBtn.style.cursor = 'pointer';
-                      delBtn.style.color = 'var(--text-light)';
-                      delBtn.textContent = 'close';
-                      delBtn.addEventListener('click', (e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          if (confirm(`Delete custom metric "${type}" from settings?`)) {
-                              data.settings.customTypes = data.settings.customTypes.filter(t => t !== type);
-                              allTypes = allTypes.filter(t => t !== type);
-                              // Remove it from all exercises
-                              data.exercises.forEach(ex => {
-                                  if (ex.types) ex.types = ex.types.filter(t => t !== type);
-                              });
-                              saveData();
-                              renderCheckboxes();
-                          }
-                      });
-                      label.appendChild(delBtn);
-                  }
-                  
-                  row.appendChild(label);
-              });
-              editOptions.appendChild(row);
-          }
-      }
 
-      renderCheckboxes();
+						const cb = label.querySelector('input');
+						const icon = label.querySelector('.checkmark');
+						cb.addEventListener('change', (e) => {
+							icon.textContent = e.target.checked ? 'check_box' : 'check_box_outline_blank';
+						});
 
-      const addBtn = content.querySelector('#btn-add-custom-type');
-      if (addBtn) {
-          addBtn.addEventListener('click', () => {
-              const newType = prompt('Enter custom metric name (e.g. sets, seconds):');
-              if (newType) {
-                  const normalized = newType.trim().toLowerCase();
-                  if (normalized && !allTypes.includes(normalized)) {
-                      if (!data.settings.customTypes) data.settings.customTypes = [];
-                      data.settings.customTypes.push(normalized);
-                      allTypes.push(normalized);
-                      exObj.types.push(normalized); // Auto-check it
-                      saveData();
-                      renderCheckboxes();
-                  }
-              }
-          });
-      }
+						if (!defaultTypes.includes(type)) {
+							const delBtn = document.createElement('span');
+							delBtn.className = 'material-icons-outlined';
+							delBtn.style.fontSize = '14px';
+							delBtn.style.marginLeft = 'auto';
+							delBtn.style.cursor = 'pointer';
+							delBtn.style.color = 'var(--text-light)';
+							delBtn.textContent = 'close';
+							delBtn.addEventListener('click', (e) => {
+								e.preventDefault();
+								e.stopPropagation();
+								if (confirm(`Delete custom metric "${type}" from settings?`)) {
+									data.settings.customTypes = data.settings.customTypes.filter(t => t !== type);
+									allTypes = allTypes.filter(t => t !== type);
+									// Remove it from all exercises
+									data.exercises.forEach(ex => {
+										if (ex.types) ex.types = ex.types.filter(t => t !== type);
+									});
+									saveData();
+									renderCheckboxes();
+								}
+							});
+							label.appendChild(delBtn);
+						}
 
-      const saveBtn = content.querySelector('.btn-large-add');
-      saveBtn.addEventListener('click', () => {
-          const newTypes = [];
-          editOptions.querySelectorAll('.custom-checkbox input').forEach(cb => {
-              if (cb.checked) {
-                  newTypes.push(cb.dataset.type);
-              }
-          });
-          exObj.types = newTypes;
-          renderView('exercise-detail');
-      });
-    } else if (viewName === 'settings') {
-      const backBtn = content.querySelector('.back-btn');
-      if (backBtn) {
-          backBtn.addEventListener('click', () => renderView('home'));
-      }
+						row.appendChild(label);
+					});
+					editOptions.appendChild(row);
+				}
+			}
 
-      const versionEl = content.querySelector('#app-version');
-      if (versionEl) {
-          versionEl.textContent = `v${APP_VERSION}`;
-      }
+			renderCheckboxes();
 
-      const homeLogsToggle = content.querySelector('#toggle-home-logs');
-      if (homeLogsToggle) {
-          const isOn = () => data.settings?.showHomeLogs !== false;
-          const updateToggle = () => {
-              homeLogsToggle.textContent = isOn() ? 'check_box' : 'check_box_outline_blank';
-          };
-          updateToggle();
-          homeLogsToggle.addEventListener('click', () => {
-              if (!data.settings) data.settings = {};
-              data.settings.showHomeLogs = !isOn();
-              saveData();
-              updateToggle();
-          });
-      }
+			const addBtn = content.querySelector('#btn-add-custom-type');
+			if (addBtn) {
+				addBtn.addEventListener('click', () => {
+					const newType = prompt('Enter custom metric name (e.g. sets, seconds):');
+					if (newType) {
+						const normalized = newType.trim().toLowerCase();
+						if (normalized && !allTypes.includes(normalized)) {
+							if (!data.settings.customTypes) data.settings.customTypes = [];
+							data.settings.customTypes.push(normalized);
+							allTypes.push(normalized);
+							exObj.types.push(normalized); // Auto-check it
+							saveData();
+							renderCheckboxes();
+						}
+					}
+				});
+			}
 
-      const formulaBtn = content.querySelector('#btn-select-1rm-formula');
-      const formulaLabel = content.querySelector('#label-1rm-formula');
-      if (formulaBtn && formulaLabel) {
-          const currentFormula = data.settings?.oneRMFormula || 'epley';
-          formulaLabel.textContent = currentFormula;
+			const saveBtn = content.querySelector('.btn-large-add');
+			saveBtn.addEventListener('click', () => {
+				const newTypes = [];
+				editOptions.querySelectorAll('.custom-checkbox input').forEach(cb => {
+					if (cb.checked) {
+						newTypes.push(cb.dataset.type);
+					}
+				});
+				exObj.types = newTypes;
+				renderView('exercise-detail');
+			});
+		} else if (viewName === 'settings') {
+			const backBtn = content.querySelector('.back-btn');
+			if (backBtn) {
+				backBtn.addEventListener('click', () => renderView('home'));
+			}
 
-          formulaBtn.addEventListener('click', () => {
-              const options = [
-                  { label: 'Epley (Default)', value: 'epley' },
-                  { label: 'Brzycki', value: 'brzycki' },
-                  { label: 'Lander', value: 'lander' },
-                  { label: 'Lombardi', value: 'lombardi' }
-              ];
-              openSelectionDialog('Select 1RM Formula', options, (selection) => {
-                  if (!data.settings) data.settings = {};
-                  data.settings.oneRMFormula = selection;
-                  saveData();
-                  renderView('settings');
-              }, 'add new', false);
-          });
-      }
+			const versionEl = content.querySelector('#app-version');
+			if (versionEl) {
+				versionEl.textContent = `v${APP_VERSION}`;
+			}
 
-      const debugInput = content.querySelector('#debug-date-input');
-      if (debugInput) {
-          debugInput.value = data.settings?.debugDate || '';
-          debugInput.addEventListener('change', (e) => {
-              if (!data.settings) data.settings = {};
-              data.settings.debugDate = e.target.value.trim();
-              saveData();
-          });
-      }
+			const homeLogsToggle = content.querySelector('#toggle-home-logs');
+			if (homeLogsToggle) {
+				const isOn = () => data.settings?.showHomeLogs !== false;
+				const updateToggle = () => {
+					homeLogsToggle.textContent = isOn() ? 'check_box' : 'check_box_outline_blank';
+				};
+				updateToggle();
+				homeLogsToggle.addEventListener('click', () => {
+					if (!data.settings) data.settings = {};
+					data.settings.showHomeLogs = !isOn();
+					saveData();
+					updateToggle();
+				});
+			}
 
-      const colorPrimary = content.querySelector('#color-primary');
-      const colorBg = content.querySelector('#color-bg');
-      const colorTextDark = content.querySelector('#color-text-dark');
-      const colorTextLight = content.querySelector('#color-text-light');
-      const colorTextDisabled = content.querySelector('#color-text-disabled');
-      const colorBorder = content.querySelector('#color-border');
-      const colorBtnSecondary = content.querySelector('#color-btn-secondary');
-      const colorBtnRemove = content.querySelector('#color-btn-remove');
-      const colorDanger = content.querySelector('#color-danger');
+			const formulaBtn = content.querySelector('#btn-select-1rm-formula');
+			const formulaLabel = content.querySelector('#label-1rm-formula');
+			if (formulaBtn && formulaLabel) {
+				const currentFormula = data.settings?.oneRMFormula || 'epley';
+				formulaLabel.textContent = currentFormula;
 
-      if (colorPrimary && colorBg && colorTextDark) {
-          const currentColors = (data.settings && data.settings.colors) ? data.settings.colors : DEFAULT_COLORS;
-          colorPrimary.value = currentColors.primary || DEFAULT_COLORS.primary;
-          colorBg.value = currentColors.bg || DEFAULT_COLORS.bg;
-          colorTextDark.value = currentColors.textDark || DEFAULT_COLORS.textDark;
-          colorTextLight.value = currentColors.textLight || DEFAULT_COLORS.textLight;
-          colorTextDisabled.value = currentColors.textDisabled || DEFAULT_COLORS.textDisabled;
-          colorBorder.value = currentColors.border || DEFAULT_COLORS.border;
-          colorBtnSecondary.value = currentColors.btnSecondaryBg || DEFAULT_COLORS.btnSecondaryBg;
-          colorBtnRemove.value = currentColors.btnRemoveColor || DEFAULT_COLORS.btnRemoveColor;
-          colorDanger.value = currentColors.danger || DEFAULT_COLORS.danger;
+				formulaBtn.addEventListener('click', () => {
+					const options = [
+						{ label: 'Epley (Default)', value: 'epley' },
+						{ label: 'Brzycki', value: 'brzycki' },
+						{ label: 'Lander', value: 'lander' },
+						{ label: 'Lombardi', value: 'lombardi' }
+					];
+					openSelectionDialog('Select 1RM Formula', options, (selection) => {
+						if (!data.settings) data.settings = {};
+						data.settings.oneRMFormula = selection;
+						saveData();
+						renderView('settings');
+					}, 'add new', false);
+				});
+			}
 
-          const updateColor = () => {
-              if (!data.settings) data.settings = {};
-              if (!data.settings.colors) data.settings.colors = {};
-              data.settings.colors.primary = colorPrimary.value;
-              data.settings.colors.bg = colorBg.value;
-              data.settings.colors.textDark = colorTextDark.value;
-              data.settings.colors.textLight = colorTextLight.value;
-              data.settings.colors.textDisabled = colorTextDisabled.value;
-              data.settings.colors.border = colorBorder.value;
-              data.settings.colors.btnSecondaryBg = colorBtnSecondary.value;
-              data.settings.colors.btnRemoveColor = colorBtnRemove.value;
-              data.settings.colors.danger = colorDanger.value;
-              applyColors();
-              saveData();
-          };
+			const debugInput = content.querySelector('#debug-date-input');
+			if (debugInput) {
+				debugInput.value = data.settings?.debugDate || '';
+				debugInput.addEventListener('change', (e) => {
+					if (!data.settings) data.settings = {};
+					data.settings.debugDate = e.target.value.trim();
+					saveData();
+				});
+			}
 
-          colorPrimary.addEventListener('input', updateColor);
-          colorBg.addEventListener('input', updateColor);
-          colorTextDark.addEventListener('input', updateColor);
-          colorTextLight.addEventListener('input', updateColor);
-          colorTextDisabled.addEventListener('input', updateColor);
-          colorBorder.addEventListener('input', updateColor);
-          colorBtnSecondary.addEventListener('input', updateColor);
-          colorBtnRemove.addEventListener('input', updateColor);
-          colorDanger.addEventListener('input', updateColor);
-      }
+			const colorPrimary = content.querySelector('#color-primary');
+			const colorBg = content.querySelector('#color-bg');
+			const colorTextDark = content.querySelector('#color-text-dark');
+			const colorTextLight = content.querySelector('#color-text-light');
+			const colorTextDisabled = content.querySelector('#color-text-disabled');
+			const colorBorder = content.querySelector('#color-border');
+			const colorBtnSecondary = content.querySelector('#color-btn-secondary');
+			const colorBtnRemove = content.querySelector('#color-btn-remove');
+			const colorDanger = content.querySelector('#color-danger');
 
-      const resetBtn = content.querySelector('#btn-reset-colors');
-      if (resetBtn) {
-          resetBtn.addEventListener('click', () => {
-              if (!data.settings) data.settings = {};
-              data.settings.colors = { ...DEFAULT_COLORS };
-              applyColors();
-              saveData();
-              renderView('settings');
-          });
-      }
-      const exportBtn = content.querySelector('#btn-export-data');
-      if (exportBtn) {
-          exportBtn.addEventListener('click', () => {
-              const fileName = `grenelle_fitness_data_${getCurrentDate()}.json`;
-              const jsonData = JSON.stringify(data, null, 2);
+			if (colorPrimary && colorBg && colorTextDark) {
+				const currentColors = (data.settings && data.settings.colors) ? data.settings.colors : DEFAULT_COLORS;
+				colorPrimary.value = currentColors.primary || DEFAULT_COLORS.primary;
+				colorBg.value = currentColors.bg || DEFAULT_COLORS.bg;
+				colorTextDark.value = currentColors.textDark || DEFAULT_COLORS.textDark;
+				colorTextLight.value = currentColors.textLight || DEFAULT_COLORS.textLight;
+				colorTextDisabled.value = currentColors.textDisabled || DEFAULT_COLORS.textDisabled;
+				colorBorder.value = currentColors.border || DEFAULT_COLORS.border;
+				colorBtnSecondary.value = currentColors.btnSecondaryBg || DEFAULT_COLORS.btnSecondaryBg;
+				colorBtnRemove.value = currentColors.btnRemoveColor || DEFAULT_COLORS.btnRemoveColor;
+				colorDanger.value = currentColors.danger || DEFAULT_COLORS.danger;
 
-              if (window.AndroidInterface && window.AndroidInterface.export) {
-                  window.AndroidInterface.export(jsonData, fileName);
-              } else {
-                  const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(jsonData);
-                  const downloadAnchorNode = document.createElement('a');
-                  downloadAnchorNode.setAttribute("href", dataStr);
-                  downloadAnchorNode.setAttribute("download", fileName);
-                  document.body.appendChild(downloadAnchorNode);
-                  downloadAnchorNode.click();
-                  downloadAnchorNode.remove();
-              }
-          });
-      }
+				const updateColor = () => {
+					if (!data.settings) data.settings = {};
+					if (!data.settings.colors) data.settings.colors = {};
+					data.settings.colors.primary = colorPrimary.value;
+					data.settings.colors.bg = colorBg.value;
+					data.settings.colors.textDark = colorTextDark.value;
+					data.settings.colors.textLight = colorTextLight.value;
+					data.settings.colors.textDisabled = colorTextDisabled.value;
+					data.settings.colors.border = colorBorder.value;
+					data.settings.colors.btnSecondaryBg = colorBtnSecondary.value;
+					data.settings.colors.btnRemoveColor = colorBtnRemove.value;
+					data.settings.colors.danger = colorDanger.value;
+					applyColors();
+					saveData();
+				};
 
-      const importInput = content.querySelector('#import-file-input');
-      if (importInput) {
-          importInput.addEventListener('change', (e) => {
-              const file = e.target.files[0];
-              if (!file) return;
+				colorPrimary.addEventListener('input', updateColor);
+				colorBg.addEventListener('input', updateColor);
+				colorTextDark.addEventListener('input', updateColor);
+				colorTextLight.addEventListener('input', updateColor);
+				colorTextDisabled.addEventListener('input', updateColor);
+				colorBorder.addEventListener('input', updateColor);
+				colorBtnSecondary.addEventListener('input', updateColor);
+				colorBtnRemove.addEventListener('input', updateColor);
+				colorDanger.addEventListener('input', updateColor);
+			}
 
-              const reader = new FileReader();
-              reader.onload = (event) => {
-                  try {
-                      const importedData = JSON.parse(event.target.result);
-                      if (importedData && typeof importedData.version !== 'undefined') {
-                          if (confirm('Are you sure you want to overwrite your current data with this backup?')) {
-                              data = importedData;
-                              saveData();
-                              applyColors();
-                              renderView('home');
-                          }
-                      } else {
-                          alert('Invalid backup file format.');
-                      }
-                  } catch (err) {
-                      alert('Failed to parse backup file.');
-                  }
-                  // Reset input so the same file can be selected again if needed
-                  e.target.value = '';
-              };
-              reader.readAsText(file);
-          });
-      }
+			const resetBtn = content.querySelector('#btn-reset-colors');
+			if (resetBtn) {
+				resetBtn.addEventListener('click', () => {
+					if (!data.settings) data.settings = {};
+					data.settings.colors = { ...DEFAULT_COLORS };
+					applyColors();
+					saveData();
+					renderView('settings');
+				});
+			}
+			const exportBtn = content.querySelector('#btn-export-data');
+			if (exportBtn) {
+				exportBtn.addEventListener('click', () => {
+					const fileName = `grenelle_fitness_data_${getCurrentDate()}.json`;
+					const jsonData = JSON.stringify(data, null, 2);
 
-      const clearBtn = content.querySelector('#btn-clear-data');
-      if (clearBtn) {
-          clearBtn.addEventListener('click', () => {
-              if (confirm('Are you sure you want to clear all data? This cannot be undone.')) {
-                  localStorage.removeItem('grenelle_fitness_data');
-                  data = JSON.parse(JSON.stringify(DEFAULT_DATA));
-                  renderView('home');
-              }
-          });
-      }
-    }
+					if (window.AndroidInterface && window.AndroidInterface.export) {
+						window.AndroidInterface.export(jsonData, fileName);
+					} else {
+						const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(jsonData);
+						const downloadAnchorNode = document.createElement('a');
+						downloadAnchorNode.setAttribute("href", dataStr);
+						downloadAnchorNode.setAttribute("download", fileName);
+						document.body.appendChild(downloadAnchorNode);
+						downloadAnchorNode.click();
+						downloadAnchorNode.remove();
+					}
+				});
+			}
 
-    mainContent.appendChild(content);
-    saveData();
-  }
+			const importInput = content.querySelector('#import-file-input');
+			if (importInput) {
+				importInput.addEventListener('change', (e) => {
+					const file = e.target.files[0];
+					if (!file) return;
 
-  navLinks.forEach(link => {
-    link.addEventListener('click', (e) => {
-      e.preventDefault();
-      renderView(e.target.dataset.target);
-    });
-  });
+					const reader = new FileReader();
+					reader.onload = (event) => {
+						try {
+							const importedData = JSON.parse(event.target.result);
+							if (importedData && typeof importedData.version !== 'undefined') {
+								if (confirm('Are you sure you want to overwrite your current data with this backup?')) {
+									data = importedData;
+									saveData();
+									applyColors();
+									renderView('home');
+								}
+							} else {
+								alert('Invalid backup file format.');
+							}
+						} catch (err) {
+							alert('Failed to parse backup file.');
+						}
+						// Reset input so the same file can be selected again if needed
+						e.target.value = '';
+					};
+					reader.readAsText(file);
+				});
+			}
 
-  const floatingTimer = document.getElementById('floating-timer');
-  let timerInterval = null;
-  let timerSeconds = 0;
+			const clearBtn = content.querySelector('#btn-clear-data');
+			if (clearBtn) {
+				clearBtn.addEventListener('click', () => {
+					if (confirm('Are you sure you want to clear all data? This cannot be undone.')) {
+						localStorage.removeItem('grenelle_fitness_data');
+						data = JSON.parse(JSON.stringify(DEFAULT_DATA));
+						renderView('home');
+					}
+				});
+			}
+		}
 
-  function updateTimerDisplay() {
-      const m = Math.floor(timerSeconds / 60).toString().padStart(2, '0');
-      const s = (timerSeconds % 60).toString().padStart(2, '0');
-      if (floatingTimer) {
-          floatingTimer.textContent = `${m}:${s}`;
-      }
-  }
+		mainContent.appendChild(content);
+		saveData();
+	}
 
-  if (floatingTimer) {
-      floatingTimer.addEventListener('click', () => {
-          if (timerInterval) {
-              clearInterval(timerInterval);
-              timerInterval = null;
-              timerSeconds = 0;
-              updateTimerDisplay();
-              floatingTimer.style.opacity = '1';
-          } else {
-              timerInterval = setInterval(() => {
-                  timerSeconds++;
-                  updateTimerDisplay();
-              }, 1000);
-              floatingTimer.style.opacity = '0.9';
-          }
-      });
-  }
+	navLinks.forEach(link => {
+		link.addEventListener('click', (e) => {
+			e.preventDefault();
+			renderView(e.target.dataset.target);
+		});
+	});
 
-  // --- Swipe Navigation ---
-  let touchStartX = 0;
-  let touchStartY = 0;
-  let touchEndX = 0;
-  let touchEndY = 0;
+	const floatingTimer = document.getElementById('floating-timer');
+	let timerInterval = null;
+	let timerSeconds = 0;
 
-  const mainViews = ['home', 'programs', 'routines', 'exercises'];
+	function updateTimerDisplay() {
+		const m = Math.floor(timerSeconds / 60).toString().padStart(2, '0');
+		const s = (timerSeconds % 60).toString().padStart(2, '0');
+		if (floatingTimer) {
+			floatingTimer.textContent = `${m}:${s}`;
+		}
+	}
 
-  document.addEventListener('touchstart', (e) => {
-      touchStartX = e.changedTouches[0].screenX;
-      touchStartY = e.changedTouches[0].screenY;
-  }, { passive: true });
+	if (floatingTimer) {
+		floatingTimer.addEventListener('click', () => {
+			if (timerInterval) {
+				clearInterval(timerInterval);
+				timerInterval = null;
+				timerSeconds = 0;
+				updateTimerDisplay();
+				floatingTimer.style.opacity = '1';
+			} else {
+				timerInterval = setInterval(() => {
+					timerSeconds++;
+					updateTimerDisplay();
+				}, 1000);
+				floatingTimer.style.opacity = '0.9';
+			}
+		});
+	}
 
-  document.addEventListener('touchend', (e) => {
-      touchEndX = e.changedTouches[0].screenX;
-      touchEndY = e.changedTouches[0].screenY;
-      handleSwipe();
-  }, { passive: true });
+	// --- Swipe Navigation ---
+	let touchStartX = 0;
+	let touchStartY = 0;
+	let touchEndX = 0;
+	let touchEndY = 0;
 
-  function handleSwipe() {
-      // Don't swipe if a dialog is open
-      if (document.querySelector('dialog[open]')) return;
+	const mainViews = ['home', 'programs', 'routines', 'exercises'];
 
-      const xDiff = touchStartX - touchEndX;
-      const yDiff = touchStartY - touchEndY;
+	document.addEventListener('touchstart', (e) => {
+		touchStartX = e.changedTouches[0].screenX;
+		touchStartY = e.changedTouches[0].screenY;
+	}, { passive: true });
 
-      if (Math.abs(xDiff) < Math.abs(yDiff)) {
-          return; // Mostly vertical swipe, likely scrolling
-      }
+	document.addEventListener('touchend', (e) => {
+		touchEndX = e.changedTouches[0].screenX;
+		touchEndY = e.changedTouches[0].screenY;
+		handleSwipe();
+	}, { passive: true });
 
-      if (Math.abs(xDiff) < 50) {
-          return; // Swipe too short
-      }
+	function handleSwipe() {
+		// Don't swipe if a dialog is open
+		if (document.querySelector('dialog[open]')) return;
 
-      const currentIndex = mainViews.indexOf(currentViewName);
-      if (currentIndex === -1) return; // Only swipe on main views
+		const xDiff = touchStartX - touchEndX;
+		const yDiff = touchStartY - touchEndY;
 
-      if (xDiff > 0) {
-          // Swipe left -> go to next view
-          if (currentIndex < mainViews.length - 1) {
-              renderView(mainViews[currentIndex + 1]);
-          }
-      } else {
-          // Swipe right -> go to prev view
-          if (currentIndex > 0) {
-              renderView(mainViews[currentIndex - 1]);
-          }
-      }
-  }
+		if (Math.abs(xDiff) < Math.abs(yDiff)) {
+			return; // Mostly vertical swipe, likely scrolling
+		}
 
-  renderView('home');
+		if (Math.abs(xDiff) < 50) {
+			return; // Swipe too short
+		}
+
+		const currentIndex = mainViews.indexOf(currentViewName);
+		if (currentIndex === -1) return; // Only swipe on main views
+
+		if (xDiff > 0) {
+			// Swipe left -> go to next view
+			if (currentIndex < mainViews.length - 1) {
+				renderView(mainViews[currentIndex + 1]);
+			}
+		} else {
+			// Swipe right -> go to prev view
+			if (currentIndex > 0) {
+				renderView(mainViews[currentIndex - 1]);
+			}
+		}
+	}
+
+	renderView('home');
 });
