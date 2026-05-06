@@ -105,7 +105,7 @@
 			<nav class="detail-nav">
 				<a href="#" class="d-nav-link active" data-tab="logs">logs</a> <span class="sep">|</span>
 				<a href="#" class="d-nav-link" data-tab="notes">notes</a> <span class="sep">|</span>
-				<a href="#" class="d-nav-link" data-tab="graph">graph</a>
+				<a href="#" class="d-nav-link" data-tab="data">data</a>
 			</nav>
 
 			<div id="tab-logs">
@@ -127,6 +127,16 @@
 
 			<div id="tab-notes" style="display: none;">
 				<textarea class="notes-textarea" placeholder=""></textarea>
+			</div>
+
+			<div id="tab-data" style="display: none;">
+				<div class="data-view">
+					<div class="settings-subheading" style="margin-top: 0;">records</div>
+					<div id="exercise-records-list"></div>
+					
+					<div class="settings-subheading">stats</div>
+					<div id="exercise-stats-list"></div>
+				</div>
 			</div>
 		</div>
 	</template>

@@ -1,4 +1,4 @@
-const APP_VERSION = '0.34';
+const APP_VERSION = '0.35';
 document.addEventListener('DOMContentLoaded', () => {
   const mainContent = document.getElementById('main-content');
   const navLinks = document.querySelectorAll('.nav-link');
@@ -1186,6 +1186,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const tabLinks = content.querySelectorAll('.d-nav-link');
       const tabLogs = content.getElementById('tab-logs');
       const tabNotes = content.getElementById('tab-notes');
+      const tabData = content.getElementById('tab-data');
 
       tabLinks.forEach(link => {
           link.addEventListener('click', (e) => {
@@ -1196,15 +1197,170 @@ document.addEventListener('DOMContentLoaded', () => {
               if (link.dataset.tab === 'logs') {
                   tabLogs.style.display = 'block';
                   tabNotes.style.display = 'none';
+                  tabData.style.display = 'none';
               } else if (link.dataset.tab === 'notes') {
                   tabLogs.style.display = 'none';
                   tabNotes.style.display = 'block';
+                  tabData.style.display = 'none';
+              } else if (link.dataset.tab === 'data') {
+                  tabLogs.style.display = 'none';
+                  tabNotes.style.display = 'none';
+                  tabData.style.display = 'block';
+                  renderDataTab();
               } else {
                   tabLogs.style.display = 'none';
                   tabNotes.style.display = 'none';
+                  tabData.style.display = 'none';
               }
           });
       });
+
+      function renderDataTab() {
+          const recordsList = document.getElementById('exercise-records-list');
+          const statsList = document.getElementById('exercise-stats-list');
+          if (!recordsList || !statsList) return;
+
+          recordsList.innerHTML = '';
+          statsList.innerHTML = '';
+
+          if (!exObj.logs || exObj.logs.length === 0) {
+              recordsList.innerHTML = '<div class="empty-state-row" style="border:none">no data available</div>';
+              return;
+          }
+
+          let heaviestWeight = 0;
+          let heaviestWeightLog = null;
+          let best1RM = 0;
+          let best1RMLog = null;
+          let bestSetVolume = 0;
+          let bestSetVolumeLog = null;
+          let bestSessionVolume = 0;
+          let bestSessionVolumeDate = null;
+          
+          let totalVolume = 0;
+          let totalSets = exObj.logs.length;
+          
+          const sessionVolumes = {}; // date -> total volume
+
+          exObj.logs.forEach(log => {
+              const w = parseFloat(log.data.kg);
+              const r = parseInt(log.data.reps, 10);
+              
+              if (!isNaN(w)) {
+                  if (w > heaviestWeight) {
+                      heaviestWeight = w;
+                      heaviestWeightLog = log;
+                  }
+                  
+                  if (!isNaN(r) && r > 0) {
+                      const vol = w * r;
+                      totalVolume += vol;
+                      if (vol > bestSetVolume) {
+                          bestSetVolume = vol;
+                          bestSetVolumeLog = log;
+                      }
+                      
+                      const oneRM = w * (1 + r / 30);
+                      if (oneRM > best1RM) {
+                          best1RM = oneRM;
+                          best1RMLog = log;
+                      }
+                      
+                      sessionVolumes[log.date] = (sessionVolumes[log.date] || 0) + vol;
+                  }
+              }
+          });
+
+          Object.entries(sessionVolumes).forEach(([date, v]) => {
+              if (v > bestSessionVolume) {
+                  bestSessionVolume = v;
+                  bestSessionVolumeDate = date;
+              }
+          });
+
+          const createRecordItem = (label, value, log, date) => {
+              const div = document.createElement('div');
+              div.className = 'list-item';
+              div.style.display = 'flex';
+              div.style.flexDirection = 'column';
+              div.style.cursor = 'default';
+              
+              let subText = '';
+              if (log) {
+                  const details = Object.entries(log.data).map(([k,v]) => `${v}${k}`).join(' ');
+                  subText = `<div style="font-size:11px; color:var(--text-light); margin-top:2px;">${details} on ${log.date}</div>`;
+              } else if (date) {
+                  subText = `<div style="font-size:11px; color:var(--text-light); margin-top:2px;">on ${date}</div>`;
+              }
+
+              div.innerHTML = `
+                <div style="display:flex; justify-content:space-between; width:100%;">
+                    <span>${label}</span>
+                    <span style="font-weight:600">${value}</span>
+                </div>
+                ${subText}
+              `;
+              return div;
+          };
+
+          const createStatItem = (label, value) => {
+              const div = document.createElement('div');
+              div.className = 'list-item';
+              div.style.display = 'flex';
+              div.style.justifyContent = 'space-between';
+              div.style.cursor = 'default';
+              div.innerHTML = `<span>${label}</span><span style="font-weight:600">${value}</span>`;
+              return div;
+          };
+
+          recordsList.appendChild(createRecordItem('Heaviest Weight', heaviestWeight > 0 ? `${heaviestWeight} kg` : '-', heaviestWeightLog));
+          recordsList.appendChild(createRecordItem('Best 1RM', best1RM > 0 ? `${Math.round(best1RM)} kg` : '-', best1RMLog));
+          recordsList.appendChild(createRecordItem('Best Set Volume', bestSetVolume > 0 ? `${Math.round(bestSetVolume)} kg` : '-', bestSetVolumeLog));
+          recordsList.appendChild(createRecordItem('Best Session Volume', bestSessionVolume > 0 ? `${Math.round(bestSessionVolume)} kg` : '-', null, bestSessionVolumeDate));
+
+          statsList.appendChild(createStatItem('Total Volume', `${Math.round(totalVolume)} kg`));
+          statsList.appendChild(createStatItem('Total Sets', totalSets));
+          statsList.appendChild(createStatItem('Total Sessions', Object.keys(sessionVolumes).length));
+
+          // Additional metrics
+          let totalWeightSum = 0;
+          let totalRepsSum = 0;
+          let setsWithWeights = 0;
+          let setsWithReps = 0;
+          let lastDate = null;
+
+          exObj.logs.forEach(log => {
+              const w = parseFloat(log.data.kg);
+              const r = parseInt(log.data.reps, 10);
+              if (!isNaN(w)) {
+                  totalWeightSum += w;
+                  setsWithWeights++;
+              }
+              if (!isNaN(r)) {
+                  totalRepsSum += r;
+                  setsWithReps++;
+              }
+          });
+          
+          if (exObj.logs.length > 0) {
+              const sortedLogs = [...exObj.logs].sort((a,b) => {
+                  const da = a.date.split('-').reverse().join('');
+                  const db = b.date.split('-').reverse().join('');
+                  return db.localeCompare(da);
+              });
+              lastDate = sortedLogs[0].date;
+          }
+
+          if (setsWithWeights > 0) {
+              statsList.appendChild(createStatItem('Average Weight', `${(totalWeightSum / setsWithWeights).toFixed(1)} kg`));
+          }
+          if (setsWithReps > 0) {
+              statsList.appendChild(createStatItem('Average Reps', (totalRepsSum / setsWithReps).toFixed(1)));
+          }
+          if (lastDate) {
+              statsList.appendChild(createStatItem('Last Workout', lastDate));
+          }
+      }
 
       // Notes textarea persistence
       const notesArea = content.querySelector('.notes-textarea');
