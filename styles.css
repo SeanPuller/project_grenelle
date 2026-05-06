@@ -235,6 +235,15 @@ body {
 	justify-content: center;
 	width: 100%;
 	gap: 8px;
+	padding: 0 40px; /* Avoid overlapping with back button */
+	overflow: hidden;
+}
+
+.ex-name {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	min-width: 0;
 }
 
 .edit-icon {
