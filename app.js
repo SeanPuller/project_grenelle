@@ -1,4 +1,4 @@
-const APP_VERSION = '0.47';
+const APP_VERSION = '0.48';
 document.addEventListener('DOMContentLoaded', () => {
 	const mainContent = document.getElementById('main-content');
 	const navLinks = document.querySelectorAll('.nav-link');
@@ -967,7 +967,65 @@ document.addEventListener('DOMContentLoaded', () => {
 					const logsHeading = document.createElement('div');
 					logsHeading.className = 'settings-subheading';
 					logsHeading.style.marginTop = '0';
-					logsHeading.textContent = isViewingToday ? "today's sets" : `sets on ${logsDate}`;
+					logsHeading.style.display = 'flex';
+					logsHeading.style.justifyContent = 'space-between';
+					logsHeading.style.alignItems = 'center';
+					
+					const titleSpan = document.createElement('span');
+					titleSpan.textContent = isViewingToday ? "today's sets" : `sets on ${logsDate}`;
+					logsHeading.appendChild(titleSpan);
+
+					const copyBtn = document.createElement('span');
+					copyBtn.className = 'material-icons-outlined';
+					copyBtn.textContent = 'content_copy';
+					copyBtn.style.fontSize = '16px';
+					copyBtn.style.cursor = 'pointer';
+					copyBtn.title = 'Copy to clipboard';
+					copyBtn.addEventListener('click', () => {
+						const dayTags = data.home.tags ? (data.home.tags[logsDate] || []) : [];
+						let text = `${logsDate}\n`;
+						if (dayTags.length > 0) {
+							text += dayTags.map(t => `#${t}`).join(' ') + '\n';
+						}
+						text += '\n';
+
+						sortedExercises.forEach(([exName, { ex, logs }]) => {
+							text += `${exName}\n`;
+							let workSetCount = 0;
+							logs.forEach(set => {
+								const setType = set.type || 's';
+								let setLabel;
+								if (setType === 'w') setLabel = 'W';
+								else if (setType === 'p') setLabel = 'P';
+								else { workSetCount++; setLabel = workSetCount.toString(); }
+
+								let metrics = Object.entries(set.data).map(([k, v]) => `${v}${k}`).join(' ');
+								if (set.data.kg !== undefined && set.data.reps !== undefined) {
+									metrics = `${set.data.kg}kg x ${set.data.reps}`;
+									const others = Object.entries(set.data).filter(([k]) => k !== 'kg' && k !== 'reps');
+									if (others.length > 0) {
+										metrics += ' ' + others.map(([k, v]) => `${v}${k}`).join(' ');
+									}
+								}
+								
+								const setTags = getSetTags(set);
+								const tagsStr = setTags.length > 0 ? ' ' + setTags.map(t => `#${t}`).join(' ') : '';
+								
+								text += `${setLabel}. ${metrics}${tagsStr}\n`;
+							});
+							text += '\n';
+						});
+
+						navigator.clipboard.writeText(text.trim()).then(() => {
+							const originalIcon = copyBtn.textContent;
+							copyBtn.textContent = 'done';
+							setTimeout(() => {
+								copyBtn.textContent = originalIcon;
+							}, 1500);
+						});
+					});
+					logsHeading.appendChild(copyBtn);
+
 					logsSection.appendChild(logsHeading);
 
 					sortedExercises.forEach(([exName, { ex, logs }]) => {
