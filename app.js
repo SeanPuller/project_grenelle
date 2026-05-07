@@ -1,10 +1,11 @@
-const APP_VERSION = '0.45';
+const APP_VERSION = '0.46';
 document.addEventListener('DOMContentLoaded', () => {
 	const mainContent = document.getElementById('main-content');
 	const navLinks = document.querySelectorAll('.nav-link');
 
 	let currentExercise = '';
 	let currentViewName = 'home';
+	let currentDepth = 0;
 	let exerciseReturnView = 'exercises';
 	let homeLogsViewDate = null; // null means today
 
@@ -735,13 +736,45 @@ document.addEventListener('DOMContentLoaded', () => {
 		return ex;
 	}
 
-	function renderView(viewName) {
+	function renderView(viewName, pushToHistory = true) {
+		const mainTabs = ['programs', 'routines', 'exercises'];
+		const subViews = ['exercise-detail', 'exercise-edit', 'settings'];
+
 		if (viewName === 'exercise-detail' && ['home', 'programs', 'routines', 'exercises'].includes(currentViewName)) {
 			exerciseReturnView = currentViewName;
 		}
 		if (currentViewName === 'home' && viewName !== 'home') {
 			homeLogsViewDate = null; // reset to today when leaving home
 		}
+
+		if (pushToHistory && viewName !== currentViewName) {
+			const currentIsHome = currentViewName === 'home';
+			const currentIsTab = mainTabs.includes(currentViewName);
+			const currentIsSub = subViews.includes(currentViewName);
+
+			const nextIsHome = viewName === 'home';
+			const nextIsTab = mainTabs.includes(viewName);
+			const nextIsSub = subViews.includes(viewName);
+
+			if (nextIsHome) {
+				if (currentDepth > 0) {
+					history.go(-currentDepth);
+					return;
+				}
+			} else if (nextIsTab) {
+				if (currentDepth === 0) {
+					currentDepth = 1;
+					history.pushState({ view: viewName, exercise: currentExercise, depth: 1 }, '', '');
+				} else {
+					currentDepth = 1;
+					history.replaceState({ view: viewName, exercise: currentExercise, depth: 1 }, '', '');
+				}
+			} else if (nextIsSub) {
+				currentDepth++;
+				history.pushState({ view: viewName, exercise: currentExercise, depth: currentDepth }, '', '');
+			}
+		}
+
 		currentViewName = viewName;
 
 		const template = document.getElementById(`view-${viewName}`);
@@ -1287,7 +1320,7 @@ document.addEventListener('DOMContentLoaded', () => {
 			if (titleSpan) titleSpan.textContent = currentExercise;
 
 			const backBtn = content.querySelector('.back-btn');
-			backBtn.addEventListener('click', () => renderView(exerciseReturnView));
+			backBtn.addEventListener('click', () => history.back());
 
 			const editIcon = content.querySelector('.edit-icon');
 			if (editIcon) {
@@ -1930,7 +1963,7 @@ document.addEventListener('DOMContentLoaded', () => {
 			if (titleSpan) titleSpan.textContent = currentExercise;
 
 			const backBtn = content.querySelector('.back-btn');
-			backBtn.addEventListener('click', () => renderView('exercise-detail'));
+			backBtn.addEventListener('click', () => history.back());
 
 			const exObj = getExerciseObj(currentExercise);
 			const editOptions = content.querySelector('.edit-options');
@@ -2029,7 +2062,7 @@ document.addEventListener('DOMContentLoaded', () => {
 		} else if (viewName === 'settings') {
 			const backBtn = content.querySelector('.back-btn');
 			if (backBtn) {
-				backBtn.addEventListener('click', () => renderView('home'));
+				backBtn.addEventListener('click', () => history.back());
 			}
 
 			const versionEl = content.querySelector('#app-version');
@@ -2334,5 +2367,19 @@ document.addEventListener('DOMContentLoaded', () => {
 		}
 	}
 
-	renderView('home');
+	window.addEventListener('popstate', (e) => {
+		if (e.state && e.state.view) {
+			currentDepth = e.state.depth || 0;
+			if (e.state.exercise) currentExercise = e.state.exercise;
+			renderView(e.state.view, false);
+		} else {
+			currentDepth = 0;
+			renderView('home', false);
+		}
+	});
+
+	// Initial state
+	currentDepth = 0;
+	history.replaceState({ view: 'home', exercise: currentExercise, depth: 0 }, '', '');
+	renderView('home', false);
 });
