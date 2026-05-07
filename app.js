@@ -1,4 +1,4 @@
-const APP_VERSION = '0.46';
+const APP_VERSION = '0.47';
 document.addEventListener('DOMContentLoaded', () => {
 	const mainContent = document.getElementById('main-content');
 	const navLinks = document.querySelectorAll('.nav-link');
@@ -776,6 +776,9 @@ document.addEventListener('DOMContentLoaded', () => {
 		}
 
 		currentViewName = viewName;
+		if (window.AndroidInterface && window.AndroidInterface.updateView) {
+			window.AndroidInterface.updateView(viewName);
+		}
 
 		const template = document.getElementById(`view-${viewName}`);
 		if (!template) return;
