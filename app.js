@@ -1,4 +1,4 @@
-const APP_VERSION = '0.49';
+const APP_VERSION = '0.50';
 document.addEventListener('DOMContentLoaded', () => {
 	const mainContent = document.getElementById('main-content');
 	const navLinks = document.querySelectorAll('.nav-link');
@@ -8,6 +8,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	let currentDepth = 0;
 	let exerciseReturnView = 'exercises';
 	let homeLogsViewDate = null; // null means today
+	let globalIsReordering = false;
 
 	const DEFAULT_COLORS = {
 		primary: '#beff5c',
@@ -512,6 +513,7 @@ document.addEventListener('DOMContentLoaded', () => {
 				if (e.touches.length !== 1) return;
 				pressTimer = setTimeout(() => {
 					isDragging = true;
+					globalIsReordering = true;
 					draggedItem = child;
 					child.style.opacity = '0.5';
 					if (navigator.vibrate) navigator.vibrate(50);
@@ -555,6 +557,7 @@ document.addEventListener('DOMContentLoaded', () => {
 				clearTimeout(pressTimer);
 				if (isDragging) {
 					isDragging = false;
+					setTimeout(() => globalIsReordering = false, 50);
 					wasDragging = true;
 					setTimeout(() => wasDragging = false, 50);
 
@@ -2398,8 +2401,8 @@ document.addEventListener('DOMContentLoaded', () => {
 	}, { passive: true });
 
 	function handleSwipe() {
-		// Don't swipe if a dialog is open
-		if (document.querySelector('dialog[open]')) return;
+		// Don't swipe if a dialog is open or if we are reordering
+		if (document.querySelector('dialog[open]') || globalIsReordering) return;
 
 		const xDiff = touchStartX - touchEndX;
 		const yDiff = touchStartY - touchEndY;
