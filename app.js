@@ -1,4 +1,4 @@
-const APP_VERSION = '0.50';
+const APP_VERSION = '0.51';
 document.addEventListener('DOMContentLoaded', () => {
 	const mainContent = document.getElementById('main-content');
 	const navLinks = document.querySelectorAll('.nav-link');
@@ -237,6 +237,19 @@ document.addEventListener('DOMContentLoaded', () => {
 			case 'epley':
 			default:
 				return w * (1 + r / 30);
+		}
+	}
+
+	function calculateWeightForReps(oneRM, r) {
+		if (r === 1) return oneRM;
+		const formula = data.settings?.oneRMFormula || 'epley';
+		switch (formula) {
+			case 'brzycki': return oneRM * (37 - r) / 36;
+			case 'lander': return (oneRM * (101.3 - 2.67123 * r)) / 100;
+			case 'lombardi': return oneRM / Math.pow(r, 0.1);
+			case 'epley':
+			default:
+				return oneRM / (1 + r / 30);
 		}
 	}
 
@@ -1441,6 +1454,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 				let heaviestWeight = 0;
 				let heaviestWeightLog = null;
+				let heaviestWeightReps = 1;
 				let best1RM = 0;
 				let best1RMLog = null;
 				let bestSetVolume = 0;
@@ -1461,6 +1475,7 @@ document.addEventListener('DOMContentLoaded', () => {
 						if (w > heaviestWeight) {
 							heaviestWeight = w;
 							heaviestWeightLog = log;
+							heaviestWeightReps = !isNaN(r) ? r : 1;
 						}
 
 						if (!isNaN(r) && r > 0) {
@@ -1570,6 +1585,89 @@ document.addEventListener('DOMContentLoaded', () => {
 				}
 				if (lastDate) {
 					statsList.appendChild(createStatItem('Last Workout', lastDate));
+				}
+
+				// 1RM Table Section
+				const oneRMSection = document.getElementById('exercise-1rm-section');
+				if (oneRMSection) {
+					oneRMSection.innerHTML = '';
+
+					const inputRow = document.createElement('div');
+					inputRow.className = 'list-item';
+					inputRow.style.display = 'flex';
+					inputRow.style.justifyContent = 'space-between';
+					inputRow.style.alignItems = 'center';
+					inputRow.style.cursor = 'default';
+					inputRow.innerHTML = `
+						<div style="display:flex; flex-direction:column; gap:2px;">
+							<span>input base</span>
+							<span style="font-size:10px; color:var(--text-light)">weight & reps</span>
+						</div>
+						<div style="display:flex; align-items:center; gap:8px;">
+							<input type="number" id="base-weight-input" class="val-input" style="width: 50px; text-align: right;" value="${Math.round(heaviestWeight)}">
+							<span class="unit">kg</span>
+							<span style="color:var(--text-light); font-size:12px;">x</span>
+							<input type="number" id="base-reps-input" class="val-input" style="width: 40px; text-align: right;" value="${heaviestWeightReps}">
+							<span class="unit">reps</span>
+						</div>
+					`;
+					oneRMSection.appendChild(inputRow);
+
+					const tableContainer = document.createElement('div');
+					tableContainer.style.marginTop = '8px';
+					oneRMSection.appendChild(tableContainer);
+
+					const renderTable = (baseWeight) => {
+						tableContainer.innerHTML = '';
+						const table = document.createElement('table');
+						table.style.width = '100%';
+						table.style.borderCollapse = 'collapse';
+						table.style.fontSize = '14px';
+
+						const tbody = document.createElement('tbody');
+						for (let i = 1; i <= 15; i++) {
+							const row = document.createElement('tr');
+							row.style.borderBottom = '1px solid var(--border-color)';
+
+							const cellRM = document.createElement('td');
+							cellRM.style.padding = '8px 0';
+							cellRM.style.color = 'var(--text-light)';
+							cellRM.textContent = `${i}RM`;
+
+							const cellWeight = document.createElement('td');
+							cellWeight.style.padding = '8px 0';
+							cellWeight.style.textAlign = 'right';
+							cellWeight.style.fontWeight = '600';
+							const w = calculateWeightForReps(baseWeight, i);
+							cellWeight.textContent = `${Math.round(w)} kg`;
+
+							row.appendChild(cellRM);
+							row.appendChild(cellWeight);
+							tbody.appendChild(row);
+						}
+						table.appendChild(tbody);
+						tableContainer.appendChild(table);
+					};
+
+					const current1RM = calculateOneRM(heaviestWeight, heaviestWeightReps);
+					renderTable(current1RM);
+
+					const weightInput = inputRow.querySelector('#base-weight-input');
+					const repsInput = inputRow.querySelector('#base-reps-input');
+					
+					const updateTable = () => {
+						const w = parseFloat(weightInput.value);
+						const r = parseInt(repsInput.value, 10);
+						if (!isNaN(w) && w >= 0 && !isNaN(r) && r > 0) {
+							const calculated1RM = calculateOneRM(w, r);
+							renderTable(calculated1RM);
+						} else {
+							tableContainer.innerHTML = '';
+						}
+					};
+
+					weightInput.addEventListener('input', updateTable);
+					repsInput.addEventListener('input', updateTable);
 				}
 			}
 

@@ -406,6 +406,24 @@ body {
 	margin-left: 8px;
 }
 
+/* 1RM Table */
+#exercise-1rm-section table {
+	border-radius: 8px;
+	overflow: hidden;
+}
+
+#exercise-1rm-section tr:last-child {
+	border-bottom: none !important;
+}
+
+#exercise-1rm-section td {
+	transition: background-color 0.2s;
+}
+
+#exercise-1rm-section tr:hover td {
+	background-color: rgba(0, 0, 0, 0.02);
+}
+
 /* Edit View */
 .edit-subtitle {
 	text-align: center;
