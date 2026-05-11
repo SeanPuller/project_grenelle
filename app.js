@@ -1,4 +1,4 @@
-const APP_VERSION = '0.62';
+const APP_VERSION = '0.63';
 document.addEventListener('DOMContentLoaded', () => {
 	const mainContent = document.getElementById('main-content');
 	const navLinks = document.querySelectorAll('.nav-link');
@@ -257,10 +257,28 @@ document.addEventListener('DOMContentLoaded', () => {
 		localStorage.setItem('grenelle_fitness_data', JSON.stringify(data, null, 2));
 	}
 
-	const settingsIcon = document.querySelector('.settings-icon');
+	const appHeader = document.querySelector('.app-header');
+	const logo = appHeader.querySelector('.logo');
+	const backBtn = appHeader.querySelector('.back-btn');
+	const headerTitle = appHeader.querySelector('.header-title');
+	const settingsIcon = appHeader.querySelector('.settings-icon');
+	const headerEditIcon = appHeader.querySelector('.header-edit-icon');
+
 	if (settingsIcon) {
 		settingsIcon.addEventListener('click', () => {
 			renderView('settings');
+		});
+	}
+
+	if (backBtn) {
+		backBtn.addEventListener('click', () => {
+			history.back();
+		});
+	}
+
+	if (headerEditIcon) {
+		headerEditIcon.addEventListener('click', () => {
+			renderView('exercise-edit');
 		});
 	}
 
@@ -915,10 +933,32 @@ document.addEventListener('DOMContentLoaded', () => {
 		});
 
 		const topNav = document.querySelector('.top-nav');
-		if (['home', 'programs', 'routines', 'exercises'].includes(viewName)) {
+		const isMainView = ['home', 'programs', 'routines', 'exercises'].includes(viewName);
+
+		if (isMainView) {
 			topNav.style.display = 'flex';
+			logo.style.display = 'flex';
+			backBtn.style.display = 'none';
+			headerTitle.style.display = 'none';
+			settingsIcon.style.display = 'flex';
+			headerEditIcon.style.display = 'none';
 		} else {
 			topNav.style.display = 'none';
+			logo.style.display = 'none';
+			backBtn.style.display = 'block';
+			headerTitle.style.display = 'block';
+			settingsIcon.style.display = 'none';
+
+			if (viewName === 'settings') {
+				headerTitle.textContent = 'settings';
+				headerEditIcon.style.display = 'none';
+			} else if (viewName === 'exercise-detail') {
+				headerTitle.textContent = currentExercise;
+				headerEditIcon.style.display = 'block';
+			} else if (viewName === 'exercise-edit') {
+				headerTitle.textContent = `edit ${currentExercise}`;
+				headerEditIcon.style.display = 'none';
+			}
 		}
 
 		mainContent.innerHTML = '';
@@ -1607,17 +1647,7 @@ document.addEventListener('DOMContentLoaded', () => {
 				emptyState.style.display = 'block';
 			}
 		} else if (viewName === 'exercise-detail') {
-			const titleSpan = content.querySelector('.ex-name');
-			if (titleSpan) titleSpan.textContent = currentExercise;
-
-			const backBtn = content.querySelector('.back-btn');
-			backBtn.addEventListener('click', () => history.back());
-
-			const editIcon = content.querySelector('.edit-icon');
-			if (editIcon) {
-				editIcon.addEventListener('click', () => renderView('exercise-edit'));
-			}
-
+			// No detail header to update here anymore, handled globally
 			const exObj = getExerciseObj(currentExercise);
 			let dataTagFilters = {}; // tag -> 'include' | 'exclude'
 
@@ -2483,12 +2513,7 @@ document.addEventListener('DOMContentLoaded', () => {
 			}
 
 		} else if (viewName === 'exercise-edit') {
-			const titleSpan = content.querySelector('.ex-name');
-			if (titleSpan) titleSpan.textContent = currentExercise;
-
-			const backBtn = content.querySelector('.back-btn');
-			backBtn.addEventListener('click', () => history.back());
-
+			// Handled globally
 			const exObj = getExerciseObj(currentExercise);
 			const editOptions = content.querySelector('.edit-options');
 

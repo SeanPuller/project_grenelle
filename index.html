@@ -23,11 +23,20 @@
 <body>
 	<div id="app">
 		<header class="app-header">
-			<div class="logo">
-				<span class="logo-text">-//--//-</span>
+			<div class="header-left">
+				<div class="logo">
+					<span class="logo-text">-//--//-</span>
+				</div>
+				<span class="material-icons-outlined back-btn" style="display: none;">arrow_back</span>
 			</div>
-			<div class="settings-icon">
-				<span class="material-icons-outlined">settings</span>
+			<div class="header-center">
+				<span class="header-title" style="display: none;"></span>
+			</div>
+			<div class="header-right">
+				<div class="settings-icon">
+					<span class="material-icons-outlined">settings</span>
+				</div>
+				<span class="material-icons-outlined header-edit-icon" style="display: none;">edit</span>
 			</div>
 		</header>
 
@@ -106,12 +115,6 @@
 
 	<template id="view-exercise-detail">
 		<div class="exercise-detail-view">
-			<div class="detail-header">
-				<span class="material-icons-outlined back-btn">arrow_back</span>
-				<div class="detail-title"><span class="ex-name">shoulder press</span> <span
-						class="material-icons-outlined edit-icon">edit</span></div>
-			</div>
-
 			<nav class="detail-nav">
 				<a href="#" class="d-nav-link active" data-tab="logs">logs</a> <span class="sep">|</span>
 				<a href="#" class="d-nav-link" data-tab="notes">notes</a> <span class="sep">|</span>
@@ -157,12 +160,6 @@
 
 	<template id="view-exercise-edit">
 		<div class="exercise-edit-view">
-			<div class="detail-header">
-				<span class="material-icons-outlined back-btn">arrow_back</span>
-				<div class="detail-title"><span class="ex-name">shoulder press</span> <span
-						class="material-icons-outlined edit-icon">edit</span></div>
-			</div>
-
 			<div class="edit-subtitle" style="display: flex; align-items: center; justify-content: center; gap: 8px;">
 				edit
 				<button class="btn-add-sm" id="btn-add-custom-type">+</button>
@@ -178,11 +175,6 @@
 
 	<template id="view-settings">
 		<div class="settings-view">
-			<div class="detail-header">
-				<span class="material-icons-outlined back-btn" style="cursor: pointer;">arrow_back</span>
-				<div class="detail-title">settings</div>
-			</div>
-
 			<div class="list-container" style="margin-top: 24px;">
 				<div class="settings-subheading" style="margin-top: 0;">presets</div>
 				<div class="list-item" style="justify-content: space-between; cursor: pointer;" id="btn-select-preset">
