@@ -1,4 +1,4 @@
-const APP_VERSION = '0.60';
+const APP_VERSION = '0.61';
 document.addEventListener('DOMContentLoaded', () => {
 	const mainContent = document.getElementById('main-content');
 	const navLinks = document.querySelectorAll('.nav-link');
@@ -1302,7 +1302,8 @@ document.addEventListener('DOMContentLoaded', () => {
 						rHeader.className = 'list-header';
 						rHeader.style.marginTop = '8px';
 						rHeader.style.paddingLeft = '24px';
-						const isRoutCollapsed = rout.isCollapsed || false;
+						if (!prog.collapsedRoutines) prog.collapsedRoutines = [];
+						const isRoutCollapsed = prog.collapsedRoutines.includes(routineName);
 						rHeader.innerHTML = `
 							<span class="material-icons-outlined collapse-toggle" style="font-size:16px; cursor:pointer; margin-right:4px;">${isRoutCollapsed ? 'chevron_right' : 'expand_more'}</span>
 							<span class="list-header-title" style="flex:1">${routineName}</span> 
@@ -1313,19 +1314,21 @@ document.addEventListener('DOMContentLoaded', () => {
 						`;
 						rWrapper.appendChild(rHeader);
 
-						rHeader.querySelector('.collapse-toggle').addEventListener('click', () => {
-							rout.isCollapsed = !isRoutCollapsed;
+						const toggleRoutCollapse = () => {
+							if (isRoutCollapsed) {
+								prog.collapsedRoutines = prog.collapsedRoutines.filter(n => n !== routineName);
+							} else {
+								prog.collapsedRoutines.push(routineName);
+							}
 							saveData();
 							renderView('programs');
-						});
+						};
+
+						rHeader.querySelector('.collapse-toggle').addEventListener('click', toggleRoutCollapse);
 
 						const rTitle = rHeader.querySelector('.list-header-title');
 						rTitle.style.cursor = 'pointer';
-						rTitle.addEventListener('click', () => {
-							rout.isCollapsed = !isRoutCollapsed;
-							saveData();
-							renderView('programs');
-						});
+						rTitle.addEventListener('click', toggleRoutCollapse);
 
 						const rRmBtn = rHeader.querySelector('.btn-remove-sm');
 						rRmBtn.addEventListener('click', (e) => {
