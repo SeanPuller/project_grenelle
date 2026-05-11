@@ -1,4 +1,4 @@
-const APP_VERSION = '0.61';
+const APP_VERSION = '0.62';
 document.addEventListener('DOMContentLoaded', () => {
 	const mainContent = document.getElementById('main-content');
 	const navLinks = document.querySelectorAll('.nav-link');
@@ -1641,6 +1641,11 @@ document.addEventListener('DOMContentLoaded', () => {
 						tabLogs.style.display = 'none';
 						tabNotes.style.display = 'block';
 						tabData.style.display = 'none';
+						const notesArea = tabNotes.querySelector('.notes-textarea');
+						if (notesArea) {
+							notesArea.style.height = '24px';
+							notesArea.style.height = Math.max(24, notesArea.scrollHeight) + 'px';
+						}
 					} else if (link.dataset.tab === 'data') {
 						tabLogs.style.display = 'none';
 						tabNotes.style.display = 'none';
