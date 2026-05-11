@@ -56,11 +56,19 @@ body {
 	font-weight: 800;
 	font-size: 18px;
 	letter-spacing: -0.5px;
+	display: flex;
+	align-items: center;
+}
+
+.settings-icon {
+	display: flex;
+	align-items: center;
 }
 
 .settings-icon .material-icons-outlined {
 	font-size: 20px;
 	cursor: pointer;
+	display: block;
 }
 
 /* Navigation */
