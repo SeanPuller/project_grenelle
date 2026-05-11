@@ -1,4 +1,4 @@
-const APP_VERSION = '0.57';
+const APP_VERSION = '0.58';
 document.addEventListener('DOMContentLoaded', () => {
 	const mainContent = document.getElementById('main-content');
 	const navLinks = document.querySelectorAll('.nav-link');
@@ -1551,6 +1551,7 @@ document.addEventListener('DOMContentLoaded', () => {
 			}
 
 			const exObj = getExerciseObj(currentExercise);
+			let dataTagFilters = {}; // tag -> 'include' | 'exclude'
 
 			// Tab switching logic
 			const tabLinks = content.querySelectorAll('.d-nav-link');
@@ -1588,15 +1589,103 @@ document.addEventListener('DOMContentLoaded', () => {
 			function renderDataTab() {
 				const recordsList = document.getElementById('exercise-records-list');
 				const statsList = document.getElementById('exercise-stats-list');
+				const filterContainer = document.getElementById('exercise-data-filters');
 				if (!recordsList || !statsList) return;
 
 				recordsList.innerHTML = '';
 				statsList.innerHTML = '';
 
-				const workingLogs = exObj.logs.filter(log => log.type !== 'w' && log.type !== 'p');
+				// Tag filtering UI
+				if (filterContainer) {
+					filterContainer.innerHTML = '';
+					const allTags = new Set();
+					exObj.logs.forEach(log => {
+						getSetTags(log).forEach(t => allTags.add(t));
+					});
+
+					if (allTags.size > 0) {
+						filterContainer.style.display = 'flex';
+						filterContainer.style.flexWrap = 'wrap';
+						filterContainer.style.gap = '6px';
+						filterContainer.style.marginBottom = '16px';
+						filterContainer.style.paddingBottom = '8px';
+						filterContainer.style.borderBottom = '1px solid var(--border-color)';
+
+						const sortedTags = Array.from(allTags).sort();
+						sortedTags.forEach(tag => {
+							const tagEl = document.createElement('span');
+							const state = dataTagFilters[tag]; // 'include', 'exclude' or undefined
+							tagEl.textContent = state === 'exclude' ? `-${tag}` : `#${tag}`;
+							tagEl.style.fontSize = '12px';
+							tagEl.style.padding = '2px 8px';
+							tagEl.style.borderRadius = '12px';
+							tagEl.style.border = '1px solid var(--border-color)';
+							tagEl.style.cursor = 'pointer';
+							tagEl.style.userSelect = 'none';
+
+							if (state === 'include') {
+								tagEl.style.backgroundColor = 'var(--primary-color)';
+								tagEl.style.borderColor = 'var(--primary-color)';
+								tagEl.style.fontWeight = '600';
+							} else if (state === 'exclude') {
+								tagEl.style.backgroundColor = 'var(--btn-secondary-bg)';
+								tagEl.style.borderColor = 'var(--btn-secondary-bg)';
+								tagEl.style.fontWeight = '600';
+							}
+
+							tagEl.addEventListener('click', () => {
+								if (!state) {
+									dataTagFilters[tag] = 'include';
+								} else if (state === 'include') {
+									dataTagFilters[tag] = 'exclude';
+								} else {
+									delete dataTagFilters[tag];
+								}
+								renderDataTab();
+							});
+							filterContainer.appendChild(tagEl);
+						});
+
+						if (Object.keys(dataTagFilters).length > 0) {
+							const clearBtn = document.createElement('span');
+							clearBtn.textContent = 'clear';
+							clearBtn.style.fontSize = '12px';
+							clearBtn.style.color = 'var(--text-light)';
+							clearBtn.style.cursor = 'pointer';
+							clearBtn.style.padding = '2px 4px';
+							clearBtn.style.textDecoration = 'underline';
+							clearBtn.addEventListener('click', () => {
+								dataTagFilters = {};
+								renderDataTab();
+							});
+							filterContainer.appendChild(clearBtn);
+						}
+					} else {
+						filterContainer.style.display = 'none';
+					}
+				}
+
+				let workingLogs = exObj.logs.filter(log => log.type !== 'w' && log.type !== 'p');
+				
+				const includeTags = Object.entries(dataTagFilters).filter(([t, state]) => state === 'include').map(([t]) => t);
+				const excludeTags = Object.entries(dataTagFilters).filter(([t, state]) => state === 'exclude').map(([t]) => t);
+
+				if (includeTags.length > 0) {
+					workingLogs = workingLogs.filter(log => {
+						const logTags = getSetTags(log);
+						return includeTags.every(t => logTags.includes(t));
+					});
+				}
+				if (excludeTags.length > 0) {
+					workingLogs = workingLogs.filter(log => {
+						const logTags = getSetTags(log);
+						return !excludeTags.some(t => logTags.includes(t));
+					});
+				}
 
 				if (workingLogs.length === 0) {
-					recordsList.innerHTML = '<div class="empty-state-row" style="border:none">no working sets recorded</div>';
+					const hasFilters = Object.keys(dataTagFilters).length > 0;
+					recordsList.innerHTML = `<div class="empty-state-row" style="border:none">${hasFilters ? 'no data matching filters' : 'no working sets recorded'}</div>`;
 					return;
 				}
 

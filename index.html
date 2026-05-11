@@ -5,7 +5,7 @@
 	<meta charset="UTF-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
 	<title>input</title>
-	
+
 	<!-- PWA Support -->
 	<link rel="manifest" href="manifest.json">
 	<meta name="apple-mobile-web-app-capable" content="yes">
@@ -141,6 +141,7 @@
 
 			<div id="tab-data" style="display: none;">
 				<div class="data-view">
+					<div id="exercise-data-filters"></div>
 					<div class="settings-subheading" style="margin-top: 0;">records</div>
 					<div id="exercise-records-list"></div>
 
@@ -240,7 +241,7 @@
 						style="border: none; background: transparent; cursor: pointer; width: 40px; height: 30px; padding: 0;">
 				</div>
 				<div class="list-item" style="justify-content: space-between; cursor: default;">
-					<span>danger color</span>
+					<span>danger</span>
 					<input type="color" id="color-danger"
 						style="border: none; background: transparent; cursor: pointer; width: 40px; height: 30px; padding: 0;">
 				</div>
@@ -324,7 +325,8 @@
 			<input type="text" id="gd-input" class="inline-input" style="width: 100%">
 		</div>
 		<div style="display: flex; justify-content: flex-end; gap: 8px;" id="gd-buttons">
-			<button type="button" id="gd-cancel" style="background: none; border: none; cursor: pointer; padding: 8px 16px;">cancel</button>
+			<button type="button" id="gd-cancel"
+				style="background: none; border: none; cursor: pointer; padding: 8px 16px;">cancel</button>
 			<button type="button" class="btn-dialog-add" id="gd-confirm">ok</button>
 		</div>
 	</dialog>
