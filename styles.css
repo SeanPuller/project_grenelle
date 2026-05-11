@@ -331,6 +331,15 @@ body {
 	border-bottom-color: var(--text-dark);
 }
 
+.val-input::placeholder {
+	color: var(--text-disabled);
+	opacity: 1;
+}
+
+.val-input.is-prefilled {
+	color: var(--text-disabled);
+}
+
 .unit {
 	color: var(--text-dark);
 	font-size: 14px;

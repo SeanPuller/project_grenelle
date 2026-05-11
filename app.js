@@ -1,4 +1,4 @@
-const APP_VERSION = '0.56';
+const APP_VERSION = '0.57';
 document.addEventListener('DOMContentLoaded', () => {
 	const mainContent = document.getElementById('main-content');
 	const navLinks = document.querySelectorAll('.nav-link');
@@ -1754,10 +1754,10 @@ document.addEventListener('DOMContentLoaded', () => {
 							<span style="font-size:10px; color:var(--text-light)">weight & reps</span>
 						</div>
 						<div style="display:flex; align-items:center; gap:8px;">
-							<input type="number" id="base-weight-input" class="val-input" style="width: 50px; text-align: right;" value="${Math.round(heaviestWeight)}" inputmode="decimal">
+							<input type="number" id="base-weight-input" class="val-input is-prefilled" style="width: 50px; text-align: right;" value="${Math.round(heaviestWeight)}" placeholder="${Math.round(heaviestWeight)}" inputmode="decimal">
 							<span class="unit">kg</span>
 							<span style="color:var(--text-light); font-size:12px;">x</span>
-							<input type="number" id="base-reps-input" class="val-input" style="width: 40px; text-align: right;" value="${heaviestWeightReps}" inputmode="numeric">
+							<input type="number" id="base-reps-input" class="val-input is-prefilled" style="width: 40px; text-align: right;" value="${heaviestWeightReps}" placeholder="${heaviestWeightReps}" inputmode="numeric">
 							<span class="unit">reps</span>
 						</div>
 					`;
@@ -1805,6 +1805,14 @@ document.addEventListener('DOMContentLoaded', () => {
 					const weightInput = inputRow.querySelector('#base-weight-input');
 					const repsInput = inputRow.querySelector('#base-reps-input');
 					
+					[weightInput, repsInput].forEach(inp => {
+						inp.addEventListener('input', () => {
+							inp.classList.remove('is-prefilled');
+							updateTable();
+						});
+						inp.addEventListener('focus', () => inp.select());
+					});
+					
 					const updateTable = () => {
 						const w = parseFloat(weightInput.value);
 						const r = parseInt(repsInput.value, 10);
@@ -1851,7 +1859,26 @@ document.addEventListener('DOMContentLoaded', () => {
 				grid.style.alignItems = 'center';
 				grid.style.marginBottom = '16px';
 
-				let currentSetType = 's';
+				const lastSet = (() => {
+					const today = getCurrentDate();
+					const todayLogs = exObj.logs.filter(l => l.date === today);
+					if (todayLogs.length > 0) {
+						return todayLogs[todayLogs.length - 1];
+					}
+					if (exObj.logs.length > 0) {
+						const sortedLogs = [...exObj.logs].sort((a, b) => {
+							const da = a.date.split('-').reverse().join('');
+							const db = b.date.split('-').reverse().join('');
+							return db.localeCompare(da);
+						});
+						const lastDate = sortedLogs[0].date;
+						const lastSessionLogs = exObj.logs.filter(l => l.date === lastDate).sort((a, b) => (a.ts || 0) - (b.ts || 0));
+						return lastSessionLogs[0];
+					}
+					return null;
+				})();
+
+				let currentSetType = lastSet ? (lastSet.type || 's') : 's';
 				let sLabelEl = null;
 
 				exObj.types.forEach((t, i) => {
@@ -1861,7 +1888,7 @@ document.addEventListener('DOMContentLoaded', () => {
 					if (i === 0) {
 						const sLabel = document.createElement('span');
 						sLabel.className = 'input-label';
-						sLabel.textContent = 's';
+						sLabel.textContent = currentSetType;
 						sLabel.style.gridColumn = '1';
 						sLabel.style.gridRow = '1';
 						sLabel.style.textAlign = 'right';
@@ -1893,6 +1920,13 @@ document.addEventListener('DOMContentLoaded', () => {
 					inp.className = 'val-input dyn-val';
 					inp.dataset.type = t;
 					inp.inputMode = 'decimal';
+					if (lastSet && lastSet.data[t]) {
+						inp.value = lastSet.data[t];
+						inp.placeholder = lastSet.data[t];
+						inp.classList.add('is-prefilled');
+					}
+					inp.addEventListener('input', () => inp.classList.remove('is-prefilled'));
+					inp.addEventListener('focus', () => inp.select());
 
 					const unit = document.createElement('span');
 					unit.className = 'unit';
@@ -1913,7 +1947,7 @@ document.addEventListener('DOMContentLoaded', () => {
 				tagSpan.style.cursor = 'pointer';
 				grid.appendChild(tagSpan);
 
-				let currentTags = [];
+				let currentTags = lastSet ? [...getSetTags(lastSet)] : [];
 
 				const renderTagSpan = () => {
 					tagSpan.innerHTML = '';
@@ -1965,8 +1999,9 @@ document.addEventListener('DOMContentLoaded', () => {
 					const newLog = {};
 					let hasData = false;
 					grid.querySelectorAll('.dyn-val').forEach(inp => {
-						if (inp.value) {
-							newLog[inp.dataset.type] = inp.value;
+						const val = inp.value || inp.placeholder;
+						if (val) {
+							newLog[inp.dataset.type] = val;
 							hasData = true;
 						}
 					});
