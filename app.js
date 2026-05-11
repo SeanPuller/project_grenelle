@@ -1,4 +1,4 @@
-const APP_VERSION = '0.59';
+const APP_VERSION = '0.60';
 document.addEventListener('DOMContentLoaded', () => {
 	const mainContent = document.getElementById('main-content');
 	const navLinks = document.querySelectorAll('.nav-link');
@@ -1229,10 +1229,29 @@ document.addEventListener('DOMContentLoaded', () => {
 
 					const header = document.createElement('div');
 					header.className = 'list-header';
-					header.innerHTML = `<span class="list-header-title" style="cursor: pointer;">${prog.name}</span> <div style="display:flex"><button class="btn-add-sm">+</button><button class="btn-remove-sm material-icons-outlined">close</button></div>`;
+					const isProgCollapsed = prog.isCollapsed || false;
+					header.innerHTML = `
+						<span class="material-icons-outlined collapse-toggle" style="font-size:18px; cursor:pointer; margin-right:4px;">${isProgCollapsed ? 'chevron_right' : 'expand_more'}</span>
+						<span class="list-header-title" style="cursor: pointer; flex:1">${prog.name}</span> 
+						<div style="display:flex">
+							<button class="btn-add-sm">+</button>
+							<button class="btn-remove-sm material-icons-outlined">close</button>
+						</div>
+					`;
 					progContainer.appendChild(header);
 
+					header.querySelector('.collapse-toggle').addEventListener('click', () => {
+						prog.isCollapsed = !isProgCollapsed;
+						saveData();
+						renderView('programs');
+					});
+
 					const titleSpan = header.querySelector('.list-header-title');
+					titleSpan.addEventListener('click', () => {
+						prog.isCollapsed = !isProgCollapsed;
+						saveData();
+						renderView('programs');
+					});
 					addLongPressListener(titleSpan, () => {
 						renderInlineRename(titleSpan, prog.name, (newName) => {
 							renameProgram(prog.name, newName);
@@ -1268,6 +1287,7 @@ document.addEventListener('DOMContentLoaded', () => {
 					});
 
 					const routinesContainer = document.createElement('div');
+					if (isProgCollapsed) routinesContainer.style.display = 'none';
 					prog.items.forEach((routineName, index) => {
 						const rWrapper = document.createElement('div');
 						rWrapper.dataset.index = index;
@@ -1282,8 +1302,30 @@ document.addEventListener('DOMContentLoaded', () => {
 						rHeader.className = 'list-header';
 						rHeader.style.marginTop = '8px';
 						rHeader.style.paddingLeft = '24px';
-						rHeader.innerHTML = `<span class="list-header-title">${routineName}</span> <div style="display:flex"><button class="btn-add-sm">+</button><button class="btn-remove-sm material-icons-outlined">close</button></div>`;
+						const isRoutCollapsed = rout.isCollapsed || false;
+						rHeader.innerHTML = `
+							<span class="material-icons-outlined collapse-toggle" style="font-size:16px; cursor:pointer; margin-right:4px;">${isRoutCollapsed ? 'chevron_right' : 'expand_more'}</span>
+							<span class="list-header-title" style="flex:1">${routineName}</span> 
+							<div style="display:flex">
+								<button class="btn-add-sm">+</button>
+								<button class="btn-remove-sm material-icons-outlined">close</button>
+							</div>
+						`;
 						rWrapper.appendChild(rHeader);
+
+						rHeader.querySelector('.collapse-toggle').addEventListener('click', () => {
+							rout.isCollapsed = !isRoutCollapsed;
+							saveData();
+							renderView('programs');
+						});
+
+						const rTitle = rHeader.querySelector('.list-header-title');
+						rTitle.style.cursor = 'pointer';
+						rTitle.addEventListener('click', () => {
+							rout.isCollapsed = !isRoutCollapsed;
+							saveData();
+							renderView('programs');
+						});
 
 						const rRmBtn = rHeader.querySelector('.btn-remove-sm');
 						rRmBtn.addEventListener('click', (e) => {
@@ -1313,6 +1355,8 @@ document.addEventListener('DOMContentLoaded', () => {
 							});
 						});
 
+						const rItems = document.createElement('div');
+						if (isRoutCollapsed) rItems.style.display = 'none';
 						rout.items.forEach((exName, exIndex) => {
 							const div = document.createElement('div');
 							div.className = 'list-item';
@@ -1343,9 +1387,10 @@ document.addEventListener('DOMContentLoaded', () => {
 								currentExercise = exName;
 								renderView('exercise-detail');
 							});
-							rWrapper.appendChild(div);
+							rItems.appendChild(div);
 						});
 
+						rWrapper.appendChild(rItems);
 						routinesContainer.appendChild(rWrapper);
 					});
 
@@ -1385,10 +1430,29 @@ document.addEventListener('DOMContentLoaded', () => {
 
 					const header = document.createElement('div');
 					header.className = 'list-header';
-					header.innerHTML = `<span class="list-header-title" style="cursor: pointer;">${rout.name}</span> <div style="display:flex"><button class="btn-add-sm">+</button><button class="btn-remove-sm material-icons-outlined">close</button></div>`;
+					const isCollapsed = rout.isCollapsed || false;
+					header.innerHTML = `
+						<span class="material-icons-outlined collapse-toggle" style="font-size:18px; cursor:pointer; margin-right:4px;">${isCollapsed ? 'chevron_right' : 'expand_more'}</span>
+						<span class="list-header-title" style="cursor: pointer; flex:1">${rout.name}</span> 
+						<div style="display:flex">
+							<button class="btn-add-sm">+</button>
+							<button class="btn-remove-sm material-icons-outlined">close</button>
+						</div>
+					`;
 					routContainer.appendChild(header);
 
+					header.querySelector('.collapse-toggle').addEventListener('click', () => {
+						rout.isCollapsed = !isCollapsed;
+						saveData();
+						renderView('routines');
+					});
+
 					const titleSpan = header.querySelector('.list-header-title');
+					titleSpan.addEventListener('click', () => {
+						rout.isCollapsed = !isCollapsed;
+						saveData();
+						renderView('routines');
+					});
 					addLongPressListener(titleSpan, () => {
 						renderInlineRename(titleSpan, rout.name, (newName) => {
 							renameRoutine(rout.name, newName);
@@ -1427,6 +1491,7 @@ document.addEventListener('DOMContentLoaded', () => {
 					});
 
 					const itemsContainer = document.createElement('div');
+					if (isCollapsed) itemsContainer.style.display = 'none';
 					rout.items.forEach((item, index) => {
 						const div = document.createElement('div');
 						div.className = 'list-item';
