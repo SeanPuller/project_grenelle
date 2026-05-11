@@ -316,12 +316,14 @@ body {
 	border: none;
 	border-bottom: 1px solid var(--border-color);
 	width: 50px;
-	padding: 2px;
+	padding: 4px 2px;
 	text-align: center;
 	font-family: inherit;
 	font-size: 14px;
 	background-color: var(--bg-color);
 	color: var(--text-dark);
+	user-select: auto !important;
+	-webkit-user-select: auto !important;
 }
 
 .val-input:focus {

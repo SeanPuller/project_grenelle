@@ -1,4 +1,4 @@
-const APP_VERSION = '0.52';
+const APP_VERSION = '0.53';
 document.addEventListener('DOMContentLoaded', () => {
 	const mainContent = document.getElementById('main-content');
 	const navLinks = document.querySelectorAll('.nav-link');
@@ -1593,21 +1593,23 @@ document.addEventListener('DOMContentLoaded', () => {
 					oneRMSection.innerHTML = '';
 
 					const inputRow = document.createElement('div');
-					inputRow.className = 'list-item';
+					inputRow.className = 'set-row'; // Use set-row instead of list-item to avoid user-select: none
 					inputRow.style.display = 'flex';
 					inputRow.style.justifyContent = 'space-between';
 					inputRow.style.alignItems = 'center';
 					inputRow.style.cursor = 'default';
+					inputRow.style.padding = '10px 0';
+					inputRow.style.borderBottom = '1px solid var(--border-color)';
 					inputRow.innerHTML = `
 						<div style="display:flex; flex-direction:column; gap:2px;">
 							<span>input base</span>
 							<span style="font-size:10px; color:var(--text-light)">weight & reps</span>
 						</div>
 						<div style="display:flex; align-items:center; gap:8px;">
-							<input type="number" id="base-weight-input" class="val-input" style="width: 50px; text-align: right;" value="${Math.round(heaviestWeight)}">
+							<input type="number" id="base-weight-input" class="val-input" style="width: 50px; text-align: right;" value="${Math.round(heaviestWeight)}" inputmode="decimal">
 							<span class="unit">kg</span>
 							<span style="color:var(--text-light); font-size:12px;">x</span>
-							<input type="number" id="base-reps-input" class="val-input" style="width: 40px; text-align: right;" value="${heaviestWeightReps}">
+							<input type="number" id="base-reps-input" class="val-input" style="width: 40px; text-align: right;" value="${heaviestWeightReps}" inputmode="numeric">
 							<span class="unit">reps</span>
 						</div>
 					`;
@@ -1742,6 +1744,7 @@ document.addEventListener('DOMContentLoaded', () => {
 					inp.type = 'number';
 					inp.className = 'val-input dyn-val';
 					inp.dataset.type = t;
+					inp.inputMode = 'decimal';
 
 					const unit = document.createElement('span');
 					unit.className = 'unit';
@@ -1955,8 +1958,11 @@ document.addEventListener('DOMContentLoaded', () => {
 						setRow.appendChild(metricsGrid);
 
 						// Click to edit
-						setRow.addEventListener('click', () => {
-							// Replace setRow contents with edit form
+						setRow.addEventListener('click', (e) => {
+							if (setRow.classList.contains('editing')) return;
+							if (e.target.tagName === 'INPUT' || e.target.closest('.inline-btn')) return;
+
+							setRow.classList.add('editing');
 							setRow.innerHTML = '';
 							setRow.style.cursor = 'default';
 							setRow.style.flexWrap = 'wrap';
@@ -1994,6 +2000,9 @@ document.addEventListener('DOMContentLoaded', () => {
 								inp.className = 'val-input';
 								inp.value = set.data[k] || '';
 								inp.style.width = '45px';
+								inp.inputMode = 'decimal';
+								// Prevent tap from bubbling up and potentially re-triggering the edit mode logic
+								inp.addEventListener('click', (e) => e.stopPropagation());
 								const unit = document.createElement('span');
 								unit.className = 'unit';
 								unit.textContent = k;
