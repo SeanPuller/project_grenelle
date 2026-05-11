@@ -1,4 +1,4 @@
-const APP_VERSION = '0.55';
+const APP_VERSION = '0.56';
 document.addEventListener('DOMContentLoaded', () => {
 	const mainContent = document.getElementById('main-content');
 	const navLinks = document.querySelectorAll('.nav-link');
@@ -1593,8 +1593,10 @@ document.addEventListener('DOMContentLoaded', () => {
 				recordsList.innerHTML = '';
 				statsList.innerHTML = '';
 
-				if (!exObj.logs || exObj.logs.length === 0) {
-					recordsList.innerHTML = '<div class="empty-state-row" style="border:none">no data available</div>';
+				const workingLogs = exObj.logs.filter(log => log.type !== 'w' && log.type !== 'p');
+
+				if (workingLogs.length === 0) {
+					recordsList.innerHTML = '<div class="empty-state-row" style="border:none">no working sets recorded</div>';
 					return;
 				}
 
@@ -1609,11 +1611,11 @@ document.addEventListener('DOMContentLoaded', () => {
 				let bestSessionVolumeDate = null;
 
 				let totalVolume = 0;
-				let totalSets = exObj.logs.length;
+				let totalSets = workingLogs.length;
 
 				const sessionVolumes = {}; // date -> total volume
 
-				exObj.logs.forEach(log => {
+				workingLogs.forEach(log => {
 					const w = parseFloat(log.data.kg);
 					const r = parseInt(log.data.reps, 10);
 
@@ -1701,7 +1703,7 @@ document.addEventListener('DOMContentLoaded', () => {
 				let setsWithReps = 0;
 				let lastDate = null;
 
-				exObj.logs.forEach(log => {
+				workingLogs.forEach(log => {
 					const w = parseFloat(log.data.kg);
 					const r = parseInt(log.data.reps, 10);
 					if (!isNaN(w)) {
@@ -1714,8 +1716,8 @@ document.addEventListener('DOMContentLoaded', () => {
 					}
 				});
 
-				if (exObj.logs.length > 0) {
-					const sortedLogs = [...exObj.logs].sort((a, b) => {
+				if (workingLogs.length > 0) {
+					const sortedLogs = [...workingLogs].sort((a, b) => {
 						const da = a.date.split('-').reverse().join('');
 						const db = b.date.split('-').reverse().join('');
 						return db.localeCompare(da);
