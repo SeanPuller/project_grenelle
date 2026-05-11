@@ -1,4 +1,4 @@
-const APP_VERSION = '0.53';
+const APP_VERSION = '0.54';
 document.addEventListener('DOMContentLoaded', () => {
 	const mainContent = document.getElementById('main-content');
 	const navLinks = document.querySelectorAll('.nav-link');
@@ -275,6 +275,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
 	let currentSelectionCallback = null;
 
+	let isMultiSelect = false;
+	let selectedValues = new Set();
+
 	function openSelectionDialog(title, optionsList, onSelect, addNewText = 'add new', showAddNew = true) {
 		sdTitle.textContent = title;
 		currentSelectionCallback = onSelect;
@@ -285,28 +288,68 @@ document.addEventListener('DOMContentLoaded', () => {
 		sdAddNewBtn.style.display = showAddNew ? 'block' : 'none';
 		sdSaveBtn.style.display = 'none';
 		sdInput.value = '';
+		isMultiSelect = false;
+		selectedValues.clear();
 
 		sdInput.setAttribute('autocapitalize', 'none');
-		sdList.innerHTML = '';
-		if (optionsList.length === 0) {
-			sdList.innerHTML = '<div style="color: gray; font-size: 14px; text-align: center; padding: 12px;">No existing entries</div>';
-		} else {
-			let options = optionsList.map(opt => typeof opt === 'string' ? { label: opt, value: opt } : opt);
-			if (typeof optionsList[0] === 'string') {
-				options.sort((a, b) => a.label.localeCompare(b.label));
-			}
-			options.forEach(opt => {
-				const div = document.createElement('div');
-				div.className = 'list-item';
-				div.textContent = opt.label;
-				div.addEventListener('click', () => {
-					sdDialog.close();
-					if (currentSelectionCallback) currentSelectionCallback(opt.value);
-				});
-				sdList.appendChild(div);
-			});
-		}
 
+		const renderList = () => {
+			sdList.innerHTML = '';
+			if (optionsList.length === 0) {
+				sdList.innerHTML = '<div style="color: gray; font-size: 14px; text-align: center; padding: 12px;">No existing entries</div>';
+			} else {
+				let options = optionsList.map(opt => typeof opt === 'string' ? { label: opt, value: opt } : opt);
+				if (typeof optionsList[0] === 'string') {
+					options.sort((a, b) => a.label.localeCompare(b.label));
+				}
+				options.forEach(opt => {
+					const div = document.createElement('div');
+					div.className = 'list-item';
+					div.style.display = 'flex';
+					div.style.alignItems = 'center';
+					div.style.gap = '8px';
+
+					const check = document.createElement('span');
+					check.className = 'material-icons-outlined';
+					check.textContent = selectedValues.has(opt.value) ? 'check_box' : 'check_box_outline_blank';
+					check.style.fontSize = '20px';
+					check.style.display = isMultiSelect ? 'block' : 'none';
+					div.appendChild(check);
+
+					const textSpan = document.createElement('span');
+					textSpan.textContent = opt.label;
+					div.appendChild(textSpan);
+
+					addLongPressListener(div, (e) => {
+						if (isMultiSelect) return;
+						isMultiSelect = true;
+						sdTitle.textContent = title + ' (multi-select)';
+						sdSaveBtn.style.display = 'block';
+						sdAddNewBtn.style.display = 'none';
+						selectedValues.add(opt.value);
+						renderList();
+					});
+
+					div.addEventListener('click', () => {
+						if (isMultiSelect) {
+							if (selectedValues.has(opt.value)) {
+								selectedValues.delete(opt.value);
+								check.textContent = 'check_box_outline_blank';
+							} else {
+								selectedValues.add(opt.value);
+								check.textContent = 'check_box';
+							}
+						} else {
+							sdDialog.close();
+							if (currentSelectionCallback) currentSelectionCallback(opt.value);
+						}
+					});
+					sdList.appendChild(div);
+				});
+			}
+		};
+
+		renderList();
 		sdDialog.showModal();
 	}
 
@@ -321,6 +364,13 @@ document.addEventListener('DOMContentLoaded', () => {
 	});
 
 	sdSaveBtn.addEventListener('click', () => {
+		if (isMultiSelect) {
+			sdDialog.close();
+			if (currentSelectionCallback) {
+				currentSelectionCallback(Array.from(selectedValues));
+			}
+			return;
+		}
 		const val = sdInput.value.trim();
 		if (val) {
 			sdDialog.close();
@@ -869,16 +919,19 @@ document.addEventListener('DOMContentLoaded', () => {
 					e.stopPropagation();
 					const allTags = getAllTags().map(t => ({ label: `#${t}`, value: t }));
 					openSelectionDialog('Select a tag', allTags, (selection) => {
-						let val = typeof selection === 'string' ? selection : selection.value;
-						if (val) {
-							val = val.replace(/^#/, '').trim();
-							if (!data.home.tags[logsDate]) data.home.tags[logsDate] = [];
-							if (!data.home.tags[logsDate].includes(val)) {
-								data.home.tags[logsDate].push(val);
-								saveData();
-								renderView('home');
+						const selections = Array.isArray(selection) ? selection : [selection];
+						selections.forEach(sel => {
+							let val = typeof sel === 'string' ? sel : sel.value;
+							if (val) {
+								val = val.replace(/^#/, '').trim();
+								if (!data.home.tags[logsDate]) data.home.tags[logsDate] = [];
+								if (!data.home.tags[logsDate].includes(val)) {
+									data.home.tags[logsDate].push(val);
+								}
 							}
-						}
+						});
+						saveData();
+						renderView('home');
 					}, 'add new tag');
 				});
 				tagsSpan.appendChild(addS);
@@ -892,16 +945,22 @@ document.addEventListener('DOMContentLoaded', () => {
 					const allOptions = [...routines, ...exercises];
 
 					openSelectionDialog('Add routine or exercise', allOptions, (selection) => {
-						if (typeof selection === 'string') {
-							itemsForDate.push(selection);
-							getExerciseObj(selection);
-						} else if (selection.type === 'routine') {
-							selection.items.forEach(exName => {
-								itemsForDate.push(exName);
-							});
-						} else {
-							itemsForDate.push(selection.name);
-						}
+						const selections = Array.isArray(selection) ? selection : [selection];
+						selections.forEach(sel => {
+							if (typeof sel === 'string') {
+								itemsForDate.push(sel);
+								getExerciseObj(sel);
+							} else if (sel.type === 'routine') {
+								sel.items.forEach(exName => {
+									itemsForDate.push(exName);
+									getExerciseObj(exName);
+								});
+							} else {
+								itemsForDate.push(sel.name);
+								getExerciseObj(sel.name);
+							}
+						});
+						saveData();
 						renderView('home');
 					}, 'add new exercise');
 				});
@@ -1134,11 +1193,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
 					const headerBtn = header.querySelector('.btn-add-sm');
 					headerBtn.addEventListener('click', () => {
-						openSelectionDialog(`Add routine to "${prog.name}"`, data.routines.map(r => r.name), (name) => {
-							prog.items.push(name);
-							if (!data.routines.find(r => r.name === name)) {
-								data.routines.push({ name: name, items: [] });
-							}
+						openSelectionDialog(`Add routine to "${prog.name}"`, data.routines.map(r => r.name), (selection) => {
+							const names = Array.isArray(selection) ? selection : [selection];
+							names.forEach(name => {
+								if (name) {
+									prog.items.push(name);
+									if (!data.routines.find(r => r.name === name)) {
+										data.routines.push({ name: name, items: [] });
+									}
+								}
+							});
+							saveData();
 							renderView('programs');
 						});
 					});
@@ -1172,11 +1237,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
 						const rHeaderBtn = rHeader.querySelector('.btn-add-sm');
 						rHeaderBtn.addEventListener('click', () => {
-							openSelectionDialog(`Add exercise to "${routineName}"`, data.exercises.map(e => e.name), (name) => {
-								rout.items.push(name);
-								if (!data.exercises.find(e => e.name === name)) {
-									getExerciseObj(name);
-								}
+							openSelectionDialog(`Add exercise to "${routineName}"`, data.exercises.map(e => e.name), (selection) => {
+								const names = Array.isArray(selection) ? selection : [selection];
+								names.forEach(name => {
+									if (name) {
+										rout.items.push(name);
+										if (!data.exercises.find(e => e.name === name)) {
+											getExerciseObj(name);
+										}
+									}
+								});
+								saveData();
 								renderView('programs');
 							});
 						});
@@ -1275,11 +1346,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
 					const headerBtn = header.querySelector('.btn-add-sm');
 					headerBtn.addEventListener('click', () => {
-						openSelectionDialog(`Add exercise to "${rout.name}"`, data.exercises.map(e => e.name), (name) => {
-							rout.items.push(name);
-							if (!data.exercises.find(e => e.name === name)) {
-								getExerciseObj(name);
-							}
+						openSelectionDialog(`Add exercise to "${rout.name}"`, data.exercises.map(e => e.name), (selection) => {
+							const names = Array.isArray(selection) ? selection : [selection];
+							names.forEach(name => {
+								if (name) {
+									rout.items.push(name);
+									if (!data.exercises.find(e => e.name === name)) {
+										getExerciseObj(name);
+									}
+								}
+							});
+							saveData();
 							renderView('routines');
 						});
 					});
@@ -1791,14 +1868,17 @@ document.addEventListener('DOMContentLoaded', () => {
 						e.stopPropagation();
 						const allTags = getAllTags().map(t => ({ label: `#${t}`, value: t }));
 						openSelectionDialog('Select a tag', allTags, (selection) => {
-							let val = typeof selection === 'string' ? selection : selection.value;
-							if (val) {
-								val = val.replace(/^#/, '').trim();
-								if (!currentTags.includes(val)) {
-									currentTags.push(val);
-									renderTagSpan();
+							const selections = Array.isArray(selection) ? selection : [selection];
+							selections.forEach(sel => {
+								let val = typeof sel === 'string' ? sel : sel.value;
+								if (val) {
+									val = val.replace(/^#/, '').trim();
+									if (!currentTags.includes(val)) {
+										currentTags.push(val);
+									}
 								}
-							}
+							});
+							renderTagSpan();
 						}, 'add new tag');
 					});
 					tagSpan.appendChild(addS);
@@ -2046,14 +2126,17 @@ document.addEventListener('DOMContentLoaded', () => {
 									e.stopPropagation();
 									const tagOptions = getAllTags().map(t => ({ label: `#${t}`, value: t }));
 									openSelectionDialog('Select a tag', tagOptions, (selection) => {
-										let val = typeof selection === 'string' ? selection : selection.value;
-										if (val) {
-											val = val.replace(/^#/, '').trim();
-											if (!editTagsList.includes(val)) {
-												editTagsList.push(val);
-												renderEditTags();
+										const selections = Array.isArray(selection) ? selection : [selection];
+										selections.forEach(sel => {
+											let val = typeof sel === 'string' ? sel : sel.value;
+											if (val) {
+												val = val.replace(/^#/, '').trim();
+												if (!editTagsList.includes(val)) {
+													editTagsList.push(val);
+												}
 											}
-										}
+										});
+										renderEditTags();
 									}, 'add new tag');
 								});
 								tagEditSpan.appendChild(addTagBtn);
@@ -2270,8 +2353,10 @@ document.addEventListener('DOMContentLoaded', () => {
 						{ label: 'Lombardi', value: 'lombardi' }
 					];
 					openSelectionDialog('Select 1RM Formula', options, (selection) => {
+						const sel = Array.isArray(selection) ? selection[0] : selection;
+						if (!sel) return;
 						if (!data.settings) data.settings = {};
-						data.settings.oneRMFormula = selection;
+						data.settings.oneRMFormula = sel;
 						saveData();
 						renderView('settings');
 					}, 'add new', false);
@@ -2283,8 +2368,10 @@ document.addEventListener('DOMContentLoaded', () => {
 				presetBtn.addEventListener('click', () => {
 					const options = Object.keys(COLOR_PRESETS).map(key => ({ label: key, value: key }));
 					openSelectionDialog('Select Preset', options, (selection) => {
+						const sel = Array.isArray(selection) ? selection[0] : selection;
+						if (!sel) return;
 						if (!data.settings) data.settings = {};
-						data.settings.colors = { ...COLOR_PRESETS[selection] };
+						data.settings.colors = { ...COLOR_PRESETS[sel] };
 						applyColors();
 						saveData();
 						renderView('settings');
