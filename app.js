@@ -1,4 +1,4 @@
-const APP_VERSION = '0.54';
+const APP_VERSION = '0.55';
 document.addEventListener('DOMContentLoaded', () => {
 	const mainContent = document.getElementById('main-content');
 	const navLinks = document.querySelectorAll('.nav-link');
@@ -383,6 +383,63 @@ document.addEventListener('DOMContentLoaded', () => {
 			sdSaveBtn.click();
 		}
 	});
+
+	// --- Generic Dialog Logic ---
+	const gdDialog = document.getElementById('generic-dialog');
+	const gdMessage = document.getElementById('gd-message');
+	const gdInputContainer = document.getElementById('gd-input-container');
+	const gdInput = document.getElementById('gd-input');
+	const gdCancel = document.getElementById('gd-cancel');
+	const gdConfirm = document.getElementById('gd-confirm');
+
+	let gdResolve = null;
+
+	function showGenericDialog(message, type = 'alert', defaultValue = '') {
+		return new Promise((resolve) => {
+			gdMessage.textContent = message;
+			gdResolve = resolve;
+
+			if (type === 'prompt') {
+				gdInputContainer.style.display = 'block';
+				gdInput.value = defaultValue;
+			} else {
+				gdInputContainer.style.display = 'none';
+			}
+
+			if (type === 'alert') {
+				gdCancel.style.display = 'none';
+			} else {
+				gdCancel.style.display = 'block';
+			}
+
+			gdDialog.showModal();
+			if (type === 'prompt') gdInput.focus();
+		});
+	}
+
+	gdConfirm.addEventListener('click', () => {
+		const isPrompt = gdInputContainer.style.display === 'block';
+		const result = isPrompt ? gdInput.value : true;
+		gdDialog.close();
+		if (gdResolve) gdResolve(result);
+	});
+
+	gdCancel.addEventListener('click', () => {
+		gdDialog.close();
+		if (gdResolve) gdResolve(null);
+	});
+
+	gdInput.addEventListener('keydown', (e) => {
+		if (e.key === 'Enter') {
+			gdConfirm.click();
+		} else if (e.key === 'Escape') {
+			gdCancel.click();
+		}
+	});
+
+	const showAlert = (msg) => showGenericDialog(msg, 'alert');
+	const showConfirm = (msg) => showGenericDialog(msg, 'confirm');
+	const showPrompt = (msg, def) => showGenericDialog(msg, 'prompt', def);
 
 	// --- Calendar Dialog Logic ---
 	const calDialog = document.getElementById('calendar-dialog');
@@ -1185,10 +1242,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
 					const headerRmBtn = header.querySelector('.btn-remove-sm');
 					headerRmBtn.addEventListener('click', () => {
-						if (confirm(`Delete program "${prog.name}"?`)) {
-							data.programs = data.programs.filter(p => p.name !== prog.name);
-							renderView('programs');
-						}
+						showConfirm(`Delete program "${prog.name}"?`).then(confirmed => {
+							if (confirmed) {
+								data.programs = data.programs.filter(p => p.name !== prog.name);
+								renderView('programs');
+							}
+						});
 					});
 
 					const headerBtn = header.querySelector('.btn-add-sm');
@@ -1229,10 +1288,12 @@ document.addEventListener('DOMContentLoaded', () => {
 						const rRmBtn = rHeader.querySelector('.btn-remove-sm');
 						rRmBtn.addEventListener('click', (e) => {
 							e.stopPropagation();
-							if (confirm(`Remove routine "${routineName}" from program?`)) {
-								prog.items.splice(index, 1);
-								renderView('programs');
-							}
+							showConfirm(`Remove routine "${routineName}" from program?`).then(confirmed => {
+								if (confirmed) {
+									prog.items.splice(index, 1);
+									renderView('programs');
+								}
+							});
 						});
 
 						const rHeaderBtn = rHeader.querySelector('.btn-add-sm');
@@ -1269,10 +1330,12 @@ document.addEventListener('DOMContentLoaded', () => {
 							rmBtn.textContent = 'close';
 							rmBtn.addEventListener('click', (e) => {
 								e.stopPropagation();
-								if (confirm(`Remove exercise "${exName}" from routine?`)) {
-									rout.items.splice(exIndex, 1);
-									renderView('programs');
-								}
+								showConfirm(`Remove exercise "${exName}" from routine?`).then(confirmed => {
+									if (confirmed) {
+										rout.items.splice(exIndex, 1);
+										renderView('programs');
+									}
+								});
 							});
 							div.appendChild(rmBtn);
 
@@ -1335,13 +1398,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
 					const headerRmBtn = header.querySelector('.btn-remove-sm');
 					headerRmBtn.addEventListener('click', () => {
-						if (confirm(`Delete routine "${rout.name}" completely?`)) {
-							data.routines = data.routines.filter(r => r.name !== rout.name);
-							data.programs.forEach(p => {
-								p.items = p.items.filter(rName => rName !== rout.name);
-							});
-							renderView('routines');
-						}
+						showConfirm(`Delete routine "${rout.name}" completely?`).then(confirmed => {
+							if (confirmed) {
+								data.routines = data.routines.filter(r => r.name !== rout.name);
+								data.programs.forEach(p => {
+									p.items = p.items.filter(rName => rName !== rout.name);
+								});
+								renderView('routines');
+							}
+						});
 					});
 
 					const headerBtn = header.querySelector('.btn-add-sm');
@@ -1379,10 +1444,12 @@ document.addEventListener('DOMContentLoaded', () => {
 						rmBtn.textContent = 'close';
 						rmBtn.addEventListener('click', (e) => {
 							e.stopPropagation();
-							if (confirm(`Remove exercise "${item}" from routine?`)) {
-								rout.items.splice(index, 1);
-								renderView('routines');
-							}
+							showConfirm(`Remove exercise "${item}" from routine?`).then(confirmed => {
+								if (confirmed) {
+									rout.items.splice(index, 1);
+									renderView('routines');
+								}
+							});
 						});
 						div.appendChild(rmBtn);
 
@@ -1449,13 +1516,15 @@ document.addEventListener('DOMContentLoaded', () => {
 					rmBtn.textContent = 'close';
 					rmBtn.addEventListener('click', (e) => {
 						e.stopPropagation();
-						if (confirm(`Delete exercise "${item.name}" completely?`)) {
-							data.exercises = data.exercises.filter(ex => ex.name !== item.name);
-							data.routines.forEach(r => {
-								r.items = r.items.filter(exName => exName !== item.name);
-							});
-							renderView('exercises');
-						}
+						showConfirm(`Delete exercise "${item.name}" completely?`).then(confirmed => {
+							if (confirmed) {
+								data.exercises = data.exercises.filter(ex => ex.name !== item.name);
+								data.routines.forEach(r => {
+									r.items = r.items.filter(exName => exName !== item.name);
+								});
+								renderView('exercises');
+							}
+						});
 					});
 					div.appendChild(rmBtn);
 
@@ -2182,11 +2251,13 @@ document.addEventListener('DOMContentLoaded', () => {
 							deleteBtn.style.color = 'var(--danger-color)';
 							deleteBtn.addEventListener('click', (e) => {
 								e.stopPropagation();
-								if (confirm('Delete this set?')) {
-									exObj.logs.splice(globalIdx, 1);
-									saveData();
-									renderView('exercise-detail');
-								}
+								showConfirm('Delete this set?').then(confirmed => {
+									if (confirmed) {
+										exObj.logs.splice(globalIdx, 1);
+										saveData();
+										renderView('exercise-detail');
+									}
+								});
 							});
 
 							const cancelBtn = document.createElement('span');
@@ -2262,16 +2333,18 @@ document.addEventListener('DOMContentLoaded', () => {
 							delBtn.addEventListener('click', (e) => {
 								e.preventDefault();
 								e.stopPropagation();
-								if (confirm(`Delete custom metric "${type}" from settings?`)) {
-									data.settings.customTypes = data.settings.customTypes.filter(t => t !== type);
-									allTypes = allTypes.filter(t => t !== type);
-									// Remove it from all exercises
-									data.exercises.forEach(ex => {
-										if (ex.types) ex.types = ex.types.filter(t => t !== type);
-									});
-									saveData();
-									renderCheckboxes();
-								}
+								showConfirm(`Delete custom metric "${type}" from settings?`).then(confirmed => {
+									if (confirmed) {
+										data.settings.customTypes = data.settings.customTypes.filter(t => t !== type);
+										allTypes = allTypes.filter(t => t !== type);
+										// Remove it from all exercises
+										data.exercises.forEach(ex => {
+											if (ex.types) ex.types = ex.types.filter(t => t !== type);
+										});
+										saveData();
+										renderCheckboxes();
+									}
+								});
 							});
 							label.appendChild(delBtn);
 						}
@@ -2287,18 +2360,19 @@ document.addEventListener('DOMContentLoaded', () => {
 			const addBtn = content.querySelector('#btn-add-custom-type');
 			if (addBtn) {
 				addBtn.addEventListener('click', () => {
-					const newType = prompt('Enter custom metric name (e.g. sets, seconds):');
-					if (newType) {
-						const normalized = newType.trim().toLowerCase();
-						if (normalized && !allTypes.includes(normalized)) {
-							if (!data.settings.customTypes) data.settings.customTypes = [];
-							data.settings.customTypes.push(normalized);
-							allTypes.push(normalized);
-							exObj.types.push(normalized); // Auto-check it
-							saveData();
-							renderCheckboxes();
+					showPrompt('Enter custom metric name (e.g. sets, seconds):').then(newType => {
+						if (newType) {
+							const normalized = newType.trim().toLowerCase();
+							if (normalized && !allTypes.includes(normalized)) {
+								if (!data.settings.customTypes) data.settings.customTypes = [];
+								data.settings.customTypes.push(normalized);
+								allTypes.push(normalized);
+								exObj.types.push(normalized); // Auto-check it
+								saveData();
+								renderCheckboxes();
+							}
 						}
-					}
+					});
 				});
 			}
 
@@ -2503,17 +2577,19 @@ document.addEventListener('DOMContentLoaded', () => {
 						try {
 							const importedData = JSON.parse(event.target.result);
 							if (importedData && typeof importedData.version !== 'undefined') {
-								if (confirm('Are you sure you want to overwrite your current data with this backup?')) {
-									data = importedData;
-									saveData();
-									applyColors();
-									renderView('home');
-								}
+								showConfirm('Are you sure you want to overwrite your current data with this backup?').then(confirmed => {
+									if (confirmed) {
+										data = importedData;
+										saveData();
+										applyColors();
+										renderView('home');
+									}
+								});
 							} else {
-								alert('Invalid backup file format.');
+								showAlert('Invalid backup file format.');
 							}
 						} catch (err) {
-							alert('Failed to parse backup file.');
+							showAlert('Failed to parse backup file.');
 						}
 						// Reset input so the same file can be selected again if needed
 						e.target.value = '';
@@ -2525,11 +2601,13 @@ document.addEventListener('DOMContentLoaded', () => {
 			const clearBtn = content.querySelector('#btn-clear-data');
 			if (clearBtn) {
 				clearBtn.addEventListener('click', () => {
-					if (confirm('Are you sure you want to clear all data? This cannot be undone.')) {
-						localStorage.removeItem('grenelle_fitness_data');
-						data = JSON.parse(JSON.stringify(DEFAULT_DATA));
-						renderView('home');
-					}
+					showConfirm('Are you sure you want to clear all data? This cannot be undone.').then(confirmed => {
+						if (confirmed) {
+							localStorage.removeItem('grenelle_fitness_data');
+							data = JSON.parse(JSON.stringify(DEFAULT_DATA));
+							renderView('home');
+						}
+					});
 				});
 			}
 		}

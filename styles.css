@@ -534,7 +534,9 @@ body {
 }
 
 /* Dialog */
-#selection-dialog {
+#selection-dialog,
+#calendar-dialog,
+#generic-dialog {
 	border: 1px solid var(--border-color);
 	border-radius: 0;
 	padding: 24px;
@@ -545,7 +547,9 @@ body {
 	color: var(--text-dark);
 }
 
-#selection-dialog::backdrop {
+#selection-dialog::backdrop,
+#calendar-dialog::backdrop,
+#generic-dialog::backdrop {
 	background: rgba(0, 0, 0, 0.5);
 }
 
