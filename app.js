@@ -1,4 +1,4 @@
-const APP_VERSION = '0.64';
+const APP_VERSION = '0.65';
 document.addEventListener('DOMContentLoaded', () => {
 	const mainContent = document.getElementById('main-content');
 	const navLinks = document.querySelectorAll('.nav-link');
@@ -2070,11 +2070,10 @@ document.addEventListener('DOMContentLoaded', () => {
 				const prefillSet = (() => {
 					if (referenceSessionLogs.length > 0) {
 						const currentSetIdx = todayLogs.length;
-						if (currentSetIdx === 0) {
-							return referenceSessionLogs[0];
-						} else if (currentSetIdx === 1) {
-							return referenceSessionLogs[1] || referenceSessionLogs[referenceSessionLogs.length - 1];
+						if (currentSetIdx < referenceSessionLogs.length) {
+							return referenceSessionLogs[currentSetIdx];
 						} else {
+							// Exceeded previous session sets, use its last set
 							return referenceSessionLogs[referenceSessionLogs.length - 1];
 						}
 					} else if (todayLogs.length > 0) {
