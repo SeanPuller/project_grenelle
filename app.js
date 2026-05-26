@@ -1,4 +1,4 @@
-const APP_VERSION = '0.63';
+const APP_VERSION = '0.64';
 document.addEventListener('DOMContentLoaded', () => {
 	const mainContent = document.getElementById('main-content');
 	const navLinks = document.querySelectorAll('.nav-link');
@@ -2051,26 +2051,44 @@ document.addEventListener('DOMContentLoaded', () => {
 				grid.style.alignItems = 'center';
 				grid.style.marginBottom = '16px';
 
-				const lastSet = (() => {
+				const referenceSessionLogs = (() => {
 					const today = getCurrentDate();
-					const todayLogs = exObj.logs.filter(l => l.date === today);
-					if (todayLogs.length > 0) {
+					const pastLogs = exObj.logs.filter(l => l.date !== today);
+					if (pastLogs.length === 0) return [];
+					const sortedPast = [...pastLogs].sort((a, b) => {
+						const da = a.date.split('-').reverse().join('');
+						const db = b.date.split('-').reverse().join('');
+						return db.localeCompare(da);
+					});
+					const lastDate = sortedPast[0].date;
+					return exObj.logs.filter(l => l.date === lastDate).sort((a, b) => (a.ts || 0) - (b.ts || 0));
+				})();
+
+				const today = getCurrentDate();
+				const todayLogs = exObj.logs.filter(l => l.date === today).sort((a, b) => (a.ts || 0) - (b.ts || 0));
+
+				const prefillSet = (() => {
+					if (referenceSessionLogs.length > 0) {
+						const currentSetIdx = todayLogs.length;
+						if (currentSetIdx === 0) {
+							return referenceSessionLogs[0];
+						} else if (currentSetIdx === 1) {
+							return referenceSessionLogs[1] || referenceSessionLogs[referenceSessionLogs.length - 1];
+						} else {
+							return referenceSessionLogs[referenceSessionLogs.length - 1];
+						}
+					} else if (todayLogs.length > 0) {
 						return todayLogs[todayLogs.length - 1];
-					}
-					if (exObj.logs.length > 0) {
-						const sortedLogs = [...exObj.logs].sort((a, b) => {
-							const da = a.date.split('-').reverse().join('');
-							const db = b.date.split('-').reverse().join('');
-							return db.localeCompare(da);
-						});
-						const lastDate = sortedLogs[0].date;
-						const lastSessionLogs = exObj.logs.filter(l => l.date === lastDate).sort((a, b) => (a.ts || 0) - (b.ts || 0));
-						return lastSessionLogs[0];
 					}
 					return null;
 				})();
 
-				let currentSetType = lastSet ? (lastSet.type || 's') : 's';
+				let currentSetType = prefillSet ? (prefillSet.type || 's') : 's';
+				const hasWarmupToday = todayLogs.some(l => l.type === 'w');
+				if (referenceSessionLogs.length === 0 && hasWarmupToday) {
+					currentSetType = 's';
+				}
+
 				let sLabelEl = null;
 
 				exObj.types.forEach((t, i) => {
@@ -2112,9 +2130,9 @@ document.addEventListener('DOMContentLoaded', () => {
 					inp.className = 'val-input dyn-val';
 					inp.dataset.type = t;
 					inp.inputMode = 'decimal';
-					if (lastSet && lastSet.data[t]) {
-						inp.value = lastSet.data[t];
-						inp.placeholder = lastSet.data[t];
+					if (prefillSet && prefillSet.data[t]) {
+						inp.value = prefillSet.data[t];
+						inp.placeholder = prefillSet.data[t];
 						inp.classList.add('is-prefilled');
 					}
 					inp.addEventListener('input', () => inp.classList.remove('is-prefilled'));
@@ -2139,7 +2157,7 @@ document.addEventListener('DOMContentLoaded', () => {
 				tagSpan.style.cursor = 'pointer';
 				grid.appendChild(tagSpan);
 
-				let currentTags = lastSet ? [...getSetTags(lastSet)] : [];
+				let currentTags = prefillSet ? [...getSetTags(prefillSet)] : [];
 
 				const renderTagSpan = () => {
 					tagSpan.innerHTML = '';
