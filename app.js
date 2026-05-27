@@ -1,4 +1,4 @@
-const APP_VERSION = '0.65';
+const APP_VERSION = '0.66';
 document.addEventListener('DOMContentLoaded', () => {
 	const mainContent = document.getElementById('main-content');
 	const navLinks = document.querySelectorAll('.nav-link');
@@ -83,7 +83,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 	const DEFAULT_DATA = {
 		version: 1,
-		settings: { debugDate: '', showHomeLogs: true, oneRMFormula: 'epley', customTypes: [], hueRotation: 0, colors: { ...DEFAULT_COLORS } },
+		settings: { debugDate: '', showHomeLogs: true, showRoutineNoteIcons: true, oneRMFormula: 'epley', customTypes: [], hueRotation: 0, colors: { ...DEFAULT_COLORS } },
 		home: {
 			history: {}
 		},
@@ -102,6 +102,7 @@ document.addEventListener('DOMContentLoaded', () => {
 				settings: {
 					debugDate: '',
 					showHomeLogs: true,
+					showRoutineNoteIcons: true,
 					oneRMFormula: 'epley',
 					customTypes: [],
 					hueRotation: 0,
@@ -225,6 +226,109 @@ document.addEventListener('DOMContentLoaded', () => {
 		if (logEntry.tags && Array.isArray(logEntry.tags)) return logEntry.tags;
 		if (logEntry.tag) return logEntry.tag.split(/[\s,]+/).filter(t => t);
 		return [];
+	}
+
+	function getRoutineItemName(item) {
+		if (typeof item === 'string') return item;
+		return item?.name || '';
+	}
+
+	function ensureRoutineIdsAndNotes() {
+		if (!data.routines) return;
+		data.routines.forEach((routine, routineIndex) => {
+			if (!routine.id) {
+				routine.id = `routine_${Date.now()}_${routineIndex}_${Math.random().toString(36).slice(2, 8)}`;
+			}
+			if (!routine.itemNotes) routine.itemNotes = {};
+			routine.items = (routine.items || []).map(item => {
+				if (typeof item === 'object' && item) {
+					return getRoutineItemName(item);
+				}
+				return item;
+			});
+		});
+	}
+
+	function getHomeItemNote(item) {
+		return typeof item === 'object' && item ? (item.note || '') : '';
+	}
+
+	function createRoutineItem(name, note = '') {
+		return { name, note };
+	}
+
+	function setRoutineItemNote(routine, index, note) {
+		const current = routine.items[index];
+		const name = getRoutineItemName(current);
+		routine.items[index] = name;
+		if (!routine.itemNotes) routine.itemNotes = {};
+		const cleanNote = note.trim();
+		if (cleanNote) {
+			routine.itemNotes[index] = cleanNote;
+		} else {
+			delete routine.itemNotes[index];
+		}
+	}
+
+	function getRoutineItemNote(routine, index) {
+		return routine?.itemNotes?.[index] || '';
+	}
+
+	function reorderRoutineItemNotes(routine, oldIndexes) {
+		if (!routine.itemNotes) return;
+		const nextNotes = {};
+		oldIndexes.forEach((oldIndex, newIndex) => {
+			const note = routine.itemNotes[oldIndex];
+			if (note) nextNotes[newIndex] = note;
+		});
+		routine.itemNotes = nextNotes;
+	}
+
+	function removeRoutineItem(routine, index) {
+		routine.items.splice(index, 1);
+		if (!routine.itemNotes) return;
+		const nextNotes = {};
+		Object.entries(routine.itemNotes).forEach(([key, note]) => {
+			const oldIndex = parseInt(key, 10);
+			if (Number.isNaN(oldIndex) || oldIndex === index || !note) return;
+			nextNotes[oldIndex > index ? oldIndex - 1 : oldIndex] = note;
+		});
+		routine.itemNotes = nextNotes;
+	}
+
+	function getRoutineEntriesForExercise(exerciseName) {
+		ensureRoutineIdsAndNotes();
+		const entries = [];
+		data.routines.forEach(routine => {
+			(routine.items || []).forEach((item, index) => {
+				if (getRoutineItemName(item) === exerciseName) {
+					entries.push({ routine, index });
+				}
+			});
+		});
+		return entries;
+	}
+
+	function renderExerciseNameWithNote(container, name, note, align = 'left') {
+		const wrap = document.createElement('span');
+		wrap.className = 'exercise-with-note';
+		wrap.style.flex = '1';
+		wrap.style.textAlign = align;
+
+		const nameSpan = document.createElement('span');
+		nameSpan.className = 'exercise-name';
+		nameSpan.textContent = name;
+		wrap.appendChild(nameSpan);
+
+		if (note) {
+			const noteSpan = document.createElement('span');
+			noteSpan.className = 'routine-note';
+			noteSpan.textContent = note;
+			wrap.appendChild(noteSpan);
+		}
+
+		container.appendChild(wrap);
+		return wrap;
 	}
 
 	function calculateOneRM(w, r) {
@@ -633,13 +737,15 @@ document.addEventListener('DOMContentLoaded', () => {
 					draggedItem.style.opacity = '1';
 				}
 				const newArray = [];
+				const newIndexes = [];
 				Array.from(container.children).forEach(c => {
 					const idx = parseInt(c.dataset.index, 10);
 					if (!isNaN(idx)) {
 						newArray.push(array[idx]);
+						newIndexes.push(idx);
 					}
 				});
-				onReorder(newArray);
+				onReorder(newArray, newIndexes);
 			});
 
 			// --- Mobile Touch Drag & Drop ---
@@ -703,11 +809,15 @@ document.addEventListener('DOMContentLoaded', () => {
 					draggedItem = null;
 
 					const newArray = [];
+					const newIndexes = [];
 					Array.from(container.children).forEach(c => {
 						const idx = parseInt(c.dataset.index, 10);
-						if (!isNaN(idx)) newArray.push(array[idx]);
+						if (!isNaN(idx)) {
+							newArray.push(array[idx]);
+							newIndexes.push(idx);
+						}
 					});
-					onReorder(newArray);
+					onReorder(newArray, newIndexes);
 				}
 			};
 
@@ -833,7 +943,11 @@ document.addEventListener('DOMContentLoaded', () => {
 		if (ex) ex.name = newName;
 
 		data.routines.forEach(r => {
-			r.items = r.items.map(item => item === oldName ? newName : item);
+			r.items = r.items.map(item => {
+				const itemName = getRoutineItemName(item);
+				if (itemName !== oldName) return item;
+				return typeof item === 'string' ? newName : { ...item, name: newName };
+			});
 		});
 
 		data.programs.forEach(p => {
@@ -842,7 +956,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
 		if (data.home.history) {
 			Object.keys(data.home.history).forEach(date => {
-				data.home.history[date] = data.home.history[date].map(item => item === oldName ? newName : item);
+				data.home.history[date] = data.home.history[date].map(item => {
+					const itemName = getRoutineItemName(item);
+					if (itemName !== oldName) return item;
+					return typeof item === 'string' ? newName : { ...item, name: newName };
+				});
 			});
 		}
 
@@ -1037,7 +1155,7 @@ document.addEventListener('DOMContentLoaded', () => {
 			const mainAddBtn = content.querySelector('.btn-add');
 			if (mainAddBtn) {
 				mainAddBtn.addEventListener('click', () => {
-					const routines = data.routines.map(r => ({ label: `[routine] ${r.name}`, value: { type: 'routine', items: r.items } })).sort((a, b) => a.label.localeCompare(b.label));
+					const routines = data.routines.map(r => ({ label: `[routine] ${r.name}`, value: { type: 'routine', routine: r } })).sort((a, b) => a.label.localeCompare(b.label));
 					const exercises = data.exercises.map(e => ({ label: e.name, value: { type: 'exercise', name: e.name } })).sort((a, b) => a.label.localeCompare(b.label));
 					const allOptions = [...routines, ...exercises];
 
@@ -1048,8 +1166,10 @@ document.addEventListener('DOMContentLoaded', () => {
 								itemsForDate.push(sel);
 								getExerciseObj(sel);
 							} else if (sel.type === 'routine') {
-								sel.items.forEach(exName => {
-									itemsForDate.push(exName);
+								sel.routine.items.forEach((routineItem, routineIndex) => {
+									const exName = getRoutineItemName(routineItem);
+									const note = getRoutineItemNote(sel.routine, routineIndex);
+									itemsForDate.push(note ? createRoutineItem(exName, note) : exName);
 									getExerciseObj(exName);
 								});
 							} else {
@@ -1066,15 +1186,14 @@ document.addEventListener('DOMContentLoaded', () => {
 			if (itemsForDate.length > 0) {
 				const homeContainer = document.createElement('div');
 				itemsForDate.forEach((item, index) => {
+					const itemName = getRoutineItemName(item);
+					const itemNote = getHomeItemNote(item);
 					const div = document.createElement('div');
 					div.className = 'list-item';
 					div.style.display = 'flex';
 					div.style.alignItems = 'center';
 
-					const textSpan = document.createElement('span');
-					textSpan.style.flex = '1';
-					textSpan.textContent = item;
-					div.appendChild(textSpan);
+					renderExerciseNameWithNote(div, itemName, itemNote);
 
 					const rmBtn = document.createElement('button');
 					rmBtn.className = 'btn-remove-sm material-icons-outlined';
@@ -1088,7 +1207,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 					div.dataset.index = index;
 					div.addEventListener('click', () => {
-						currentExercise = item;
+						currentExercise = itemName;
 						renderView('exercise-detail');
 					});
 					homeContainer.appendChild(div);
@@ -1400,17 +1519,33 @@ document.addEventListener('DOMContentLoaded', () => {
 
 						const rItems = document.createElement('div');
 						if (isRoutCollapsed) rItems.style.display = 'none';
-						rout.items.forEach((exName, exIndex) => {
+						rout.items.forEach((routineItem, exIndex) => {
+							const exName = getRoutineItemName(routineItem);
+							const exNote = getRoutineItemNote(rout, exIndex);
 							const div = document.createElement('div');
 							div.className = 'list-item';
 							div.style.display = 'flex';
 							div.style.alignItems = 'center';
 
-							const textSpan = document.createElement('span');
-							textSpan.style.flex = '1';
-							textSpan.style.textAlign = 'right';
-							textSpan.textContent = exName;
-							div.appendChild(textSpan);
+							renderExerciseNameWithNote(div, exName, exNote, 'right');
+
+							if (data.settings?.showRoutineNoteIcons !== false) {
+								const noteBtn = document.createElement('button');
+								noteBtn.className = 'btn-remove-sm material-icons-outlined';
+								noteBtn.textContent = exNote ? 'edit_note' : 'note_add';
+								noteBtn.title = exNote ? 'Edit routine note' : 'Add routine note';
+								noteBtn.addEventListener('click', (e) => {
+									e.stopPropagation();
+									showPrompt(`Routine note for "${exName}" (e.g. 5 sets x 10 reps):`, exNote).then(note => {
+										if (note !== null) {
+											setRoutineItemNote(rout, exIndex, note);
+											saveData();
+											renderView('programs');
+										}
+									});
+								});
+								div.appendChild(noteBtn);
+							}
 
 							const rmBtn = document.createElement('button');
 							rmBtn.className = 'btn-remove-sm material-icons-outlined';
@@ -1419,7 +1554,7 @@ document.addEventListener('DOMContentLoaded', () => {
 								e.stopPropagation();
 								showConfirm(`Remove exercise "${exName}" from routine?`).then(confirmed => {
 									if (confirmed) {
-										rout.items.splice(exIndex, 1);
+										removeRoutineItem(rout, exIndex);
 										renderView('programs');
 									}
 								});
@@ -1536,25 +1671,41 @@ document.addEventListener('DOMContentLoaded', () => {
 					const itemsContainer = document.createElement('div');
 					if (isCollapsed) itemsContainer.style.display = 'none';
 					rout.items.forEach((item, index) => {
+						const itemName = getRoutineItemName(item);
+						const itemNote = getRoutineItemNote(rout, index);
 						const div = document.createElement('div');
 						div.className = 'list-item';
 						div.style.display = 'flex';
 						div.style.alignItems = 'center';
 
-						const textSpan = document.createElement('span');
-						textSpan.style.flex = '1';
-						textSpan.style.textAlign = 'right';
-						textSpan.textContent = item;
-						div.appendChild(textSpan);
+						renderExerciseNameWithNote(div, itemName, itemNote, 'right');
+
+						if (data.settings?.showRoutineNoteIcons !== false) {
+							const noteBtn = document.createElement('button');
+							noteBtn.className = 'btn-remove-sm material-icons-outlined';
+							noteBtn.textContent = itemNote ? 'edit_note' : 'note_add';
+							noteBtn.title = itemNote ? 'Edit routine note' : 'Add routine note';
+							noteBtn.addEventListener('click', (e) => {
+								e.stopPropagation();
+								showPrompt(`Routine note for "${itemName}" (e.g. 5 sets x 10 reps):`, itemNote).then(note => {
+									if (note !== null) {
+										setRoutineItemNote(rout, index, note);
+										saveData();
+										renderView('routines');
+									}
+								});
+							});
+							div.appendChild(noteBtn);
+						}
 
 						const rmBtn = document.createElement('button');
 						rmBtn.className = 'btn-remove-sm material-icons-outlined';
 						rmBtn.textContent = 'close';
 						rmBtn.addEventListener('click', (e) => {
 							e.stopPropagation();
-							showConfirm(`Remove exercise "${item}" from routine?`).then(confirmed => {
+							showConfirm(`Remove exercise "${itemName}" from routine?`).then(confirmed => {
 								if (confirmed) {
-									rout.items.splice(index, 1);
+									removeRoutineItem(rout, index);
 									renderView('routines');
 								}
 							});
@@ -1563,13 +1714,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
 						div.dataset.index = index;
 						div.addEventListener('click', () => {
-							currentExercise = item;
+							currentExercise = itemName;
 							renderView('exercise-detail');
 						});
 						itemsContainer.appendChild(div);
 					});
 
-					setupReorderable(itemsContainer, rout.items, (newArr) => {
+					setupReorderable(itemsContainer, rout.items, (newArr, oldIndexes) => {
+						reorderRoutineItemNotes(rout, oldIndexes);
 						rout.items = newArr;
 						renderView('routines');
 					});
@@ -1628,7 +1780,7 @@ document.addEventListener('DOMContentLoaded', () => {
 							if (confirmed) {
 								data.exercises = data.exercises.filter(ex => ex.name !== item.name);
 								data.routines.forEach(r => {
-									r.items = r.items.filter(exName => exName !== item.name);
+									r.items = r.items.filter(exItem => getRoutineItemName(exItem) !== item.name);
 								});
 								renderView('exercises');
 							}
@@ -1671,11 +1823,7 @@ document.addEventListener('DOMContentLoaded', () => {
 						tabLogs.style.display = 'none';
 						tabNotes.style.display = 'block';
 						tabData.style.display = 'none';
-						const notesArea = tabNotes.querySelector('.notes-textarea');
-						if (notesArea) {
-							notesArea.style.height = '24px';
-							notesArea.style.height = Math.max(24, notesArea.scrollHeight) + 'px';
-						}
+						resizeNotesTextareas(tabNotes);
 					} else if (link.dataset.tab === 'data') {
 						tabLogs.style.display = 'none';
 						tabNotes.style.display = 'none';
@@ -2021,9 +2169,71 @@ document.addEventListener('DOMContentLoaded', () => {
 				}
 			}
 
+			function resizeNotesTextareas(scope) {
+				scope.querySelectorAll('textarea').forEach(area => {
+					area.style.height = '24px';
+					area.style.height = Math.max(24, area.scrollHeight) + 'px';
+				});
+			}
+
+			function renderVisibleRoutineNotes() {
+				const entries = getRoutineEntriesForExercise(currentExercise);
+				const notesArea = tabNotes.querySelector('.notes-textarea');
+				if (!notesArea) return;
+
+				const existing = tabNotes.querySelector('.visible-routine-notes');
+				if (existing) existing.remove();
+
+				if (entries.length === 0) return;
+
+				const section = document.createElement('div');
+				section.className = 'visible-routine-notes';
+
+				const heading = document.createElement('div');
+				heading.className = 'settings-subheading';
+				heading.style.marginTop = '0';
+				heading.textContent = 'visible notes';
+				section.appendChild(heading);
+
+				entries.forEach(({ routine, index }) => {
+					const row = document.createElement('div');
+					row.className = 'visible-note-row';
+
+					const label = document.createElement('div');
+					label.className = 'visible-note-routine';
+					const duplicateCount = routine.items.filter(item => getRoutineItemName(item) === currentExercise).length;
+					label.textContent = duplicateCount > 1 ? `${routine.name} #${index + 1}` : routine.name;
+					row.appendChild(label);
+
+					const input = document.createElement('textarea');
+					input.className = 'visible-note-input';
+					input.placeholder = 'visible note...';
+					input.value = getRoutineItemNote(routine, index);
+					input.rows = 1;
+					input.addEventListener('input', () => {
+						setRoutineItemNote(routine, index, input.value);
+						saveData();
+						resizeNotesTextareas(row);
+					});
+					row.appendChild(input);
+
+					section.appendChild(row);
+				});
+
+				tabNotes.insertBefore(section, notesArea);
+				resizeNotesTextareas(section);
+			}
+
+			renderVisibleRoutineNotes();
+
 			// Notes textarea persistence
 			const notesArea = content.querySelector('.notes-textarea');
 			if (notesArea) {
+				const notesHeading = document.createElement('div');
+				notesHeading.className = 'settings-subheading';
+				notesHeading.textContent = 'notes';
+				notesArea.parentNode.insertBefore(notesHeading, notesArea);
+
 				notesArea.value = exObj.notes || '';
 
 				const autoResize = () => {
@@ -2654,6 +2864,21 @@ document.addEventListener('DOMContentLoaded', () => {
 				});
 			}
 
+			const routineNoteIconsToggle = content.querySelector('#toggle-routine-note-icons');
+			if (routineNoteIconsToggle) {
+				const isOn = () => data.settings?.showRoutineNoteIcons !== false;
+				const updateToggle = () => {
+					routineNoteIconsToggle.textContent = isOn() ? 'check_box' : 'check_box_outline_blank';
+				};
+				updateToggle();
+				routineNoteIconsToggle.addEventListener('click', () => {
+					if (!data.settings) data.settings = {};
+					data.settings.showRoutineNoteIcons = !isOn();
+					saveData();
+					updateToggle();
+				});
+			}
+
 			const formulaBtn = content.querySelector('#btn-select-1rm-formula');
 			const formulaLabel = content.querySelector('#label-1rm-formula');
 			if (formulaBtn && formulaLabel) {
@@ -2777,16 +3002,6 @@ document.addEventListener('DOMContentLoaded', () => {
 				colorDanger.addEventListener('input', updateColor);
 			}
 
-			const resetBtn = content.querySelector('#btn-reset-colors');
-			if (resetBtn) {
-				resetBtn.addEventListener('click', () => {
-					if (!data.settings) data.settings = {};
-					data.settings.colors = { ...DEFAULT_COLORS };
-					applyColors();
-					saveData();
-					renderView('settings');
-				});
-			}
 			const exportBtn = content.querySelector('#btn-export-data');
 			if (exportBtn) {
 				exportBtn.addEventListener('click', () => {

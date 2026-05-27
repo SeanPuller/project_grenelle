@@ -271,6 +271,58 @@ body {
 	flex: 1;
 }
 
+.exercise-with-note {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	min-width: 0;
+}
+
+.exercise-name,
+.routine-note {
+	overflow-wrap: anywhere;
+}
+
+.routine-note {
+	color: var(--text-light);
+	font-size: 12px;
+	line-height: 1.35;
+}
+
+.visible-routine-notes {
+	margin-bottom: 24px;
+}
+
+.visible-note-row {
+	padding: 10px 0;
+	border-bottom: 1px solid var(--border-color);
+}
+
+.visible-note-routine {
+	font-weight: 600;
+	margin-bottom: 6px;
+}
+
+.visible-note-input {
+	width: 100%;
+	min-height: 24px;
+	font-family: inherit;
+	font-size: 13px;
+	line-height: 24px;
+	border: none;
+	outline: none;
+	resize: none;
+	background: repeating-linear-gradient(transparent,
+			transparent 23px,
+			var(--notes-line-color) 23px,
+			var(--notes-line-color) 24px);
+	background-attachment: local;
+	padding: 0;
+	margin: 0;
+	overflow: hidden;
+	display: block;
+}
+
 /* Exercise Detail View */
 .detail-header {
 	display: flex;
