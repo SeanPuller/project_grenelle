@@ -572,6 +572,21 @@ body {
 	font-weight: 600;
 }
 
+.settings-view .settings-subheading {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	cursor: pointer;
+	user-select: none;
+	-webkit-user-select: none;
+}
+
+.settings-collapse-icon {
+	color: var(--text-light);
+	font-size: 18px;
+	letter-spacing: 0;
+}
+
 .settings-subheading span.material-icons-outlined:hover {
 	opacity: 0.7;
 }

@@ -1,4 +1,4 @@
-const APP_VERSION = '0.72';
+const APP_VERSION = '0.73';
 document.addEventListener('DOMContentLoaded', () => {
 	const mainContent = document.getElementById('main-content');
 	const navLinks = document.querySelectorAll('.nav-link');
@@ -2914,6 +2914,24 @@ document.addEventListener('DOMContentLoaded', () => {
 			if (versionEl) {
 				versionEl.textContent = `v${APP_VERSION}`;
 			}
+
+			content.querySelectorAll('.settings-subheading').forEach(heading => {
+				const icon = document.createElement('span');
+				icon.className = 'material-icons-outlined settings-collapse-icon';
+				icon.textContent = 'expand_more';
+				heading.appendChild(icon);
+
+				heading.addEventListener('click', () => {
+					const isCollapsed = icon.textContent === 'chevron_right';
+					icon.textContent = isCollapsed ? 'expand_more' : 'chevron_right';
+
+					let el = heading.nextElementSibling;
+					while (el && !el.classList.contains('settings-subheading')) {
+						el.style.display = isCollapsed ? '' : 'none';
+						el = el.nextElementSibling;
+					}
+				});
+			});
 
 			const homeLogsToggle = content.querySelector('#toggle-home-logs');
 			if (homeLogsToggle) {
