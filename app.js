@@ -1,4 +1,4 @@
-const APP_VERSION = '0.70';
+const APP_VERSION = '0.71';
 document.addEventListener('DOMContentLoaded', () => {
 	const mainContent = document.getElementById('main-content');
 	const navLinks = document.querySelectorAll('.nav-link');
@@ -84,7 +84,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 	const DEFAULT_DATA = {
 		version: 1,
-		settings: { debugDate: '', showHomeLogs: true, showRoutineNoteIcons: true, oneRMFormula: 'epley', customTypes: [], hueRotation: 0, colors: { ...DEFAULT_COLORS } },
+		settings: { debugDate: '', showHomeLogs: true, showRoutineNoteIcons: true, searchType: 'contains', oneRMFormula: 'epley', customTypes: [], hueRotation: 0, colors: { ...DEFAULT_COLORS } },
 		home: {
 			history: {}
 		},
@@ -104,6 +104,7 @@ document.addEventListener('DOMContentLoaded', () => {
 					debugDate: '',
 					showHomeLogs: true,
 					showRoutineNoteIcons: true,
+					searchType: 'contains',
 					oneRMFormula: 'epley',
 					customTypes: [],
 					hueRotation: 0,
@@ -362,6 +363,17 @@ document.addEventListener('DOMContentLoaded', () => {
 		localStorage.setItem('grenelle_fitness_data', JSON.stringify(data, null, 2));
 	}
 
+	function searchMatches(label, searchTerm) {
+		const normalizedLabel = (label || '').toLowerCase();
+		const normalizedTerm = (searchTerm || '').trim().toLowerCase();
+		if (!normalizedTerm) return true;
+
+		if (data.settings?.searchType === 'prefix') {
+			return normalizedLabel.startsWith(normalizedTerm);
+		}
+		return normalizedLabel.includes(normalizedTerm);
+	}
+
 	const appHeader = document.querySelector('.app-header');
 	const logo = appHeader.querySelector('.logo');
 	const backBtn = appHeader.querySelector('.back-btn');
@@ -439,9 +451,9 @@ document.addEventListener('DOMContentLoaded', () => {
 				if (typeof optionsList[0] === 'string') {
 					options.sort((a, b) => a.label.localeCompare(b.label));
 				}
-				const searchTerm = sdSearch.value.trim().toLowerCase();
+				const searchTerm = sdSearch.value;
 				if (searchTerm) {
-					options = options.filter(opt => opt.label.toLowerCase().includes(searchTerm));
+					options = options.filter(opt => searchMatches(opt.label, searchTerm));
 				}
 				if (options.length === 0) {
 					sdList.innerHTML = '<div style="color: gray; font-size: 14px; text-align: center; padding: 12px;">No matching entries</div>';
@@ -1784,9 +1796,9 @@ document.addEventListener('DOMContentLoaded', () => {
 				listContainer.innerHTML = '';
 
 				if (data.exercises.length > 0) {
-					const searchTerm = exerciseSearchTerm.trim().toLowerCase();
+					const searchTerm = exerciseSearchTerm;
 					const sorted = [...data.exercises]
-						.filter(item => !searchTerm || item.name.toLowerCase().includes(searchTerm))
+						.filter(item => searchMatches(item.name, searchTerm))
 						.sort((a, b) => a.name.localeCompare(b.name));
 
 					if (sorted.length === 0) {
@@ -2928,6 +2940,28 @@ document.addEventListener('DOMContentLoaded', () => {
 					data.settings.showRoutineNoteIcons = !isOn();
 					saveData();
 					updateToggle();
+				});
+			}
+
+			const searchTypeBtn = content.querySelector('#btn-select-search-type');
+			const searchTypeLabel = content.querySelector('#label-search-type');
+			if (searchTypeBtn && searchTypeLabel) {
+				const currentSearchType = data.settings?.searchType || 'contains';
+				searchTypeLabel.textContent = currentSearchType;
+
+				searchTypeBtn.addEventListener('click', () => {
+					const options = [
+						{ label: 'Contains', value: 'contains' },
+						{ label: 'Prefix', value: 'prefix' }
+					];
+					openSelectionDialog('Select Search Type', options, (selection) => {
+						const sel = Array.isArray(selection) ? selection[0] : selection;
+						if (!sel) return;
+						if (!data.settings) data.settings = {};
+						data.settings.searchType = sel;
+						saveData();
+						renderView('settings');
+					}, 'add new', false);
 				});
 			}
 
