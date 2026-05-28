@@ -1,4 +1,4 @@
-const APP_VERSION = '0.71';
+const APP_VERSION = '0.72';
 document.addEventListener('DOMContentLoaded', () => {
 	const mainContent = document.getElementById('main-content');
 	const navLinks = document.querySelectorAll('.nav-link');
@@ -429,9 +429,10 @@ document.addEventListener('DOMContentLoaded', () => {
 		sdTitle.textContent = title;
 		currentSelectionCallback = onSelect;
 		sdAddNewBtn.textContent = addNewText;
+		const showSearch = currentViewName !== 'settings';
 
 		sdList.style.display = 'block';
-		sdSearch.style.display = 'block';
+		sdSearch.style.display = showSearch ? 'block' : 'none';
 		sdNewContainer.style.display = 'none';
 		sdAddNewBtn.style.display = showAddNew ? 'block' : 'none';
 		sdSaveBtn.style.display = 'none';
@@ -1299,6 +1300,7 @@ document.addEventListener('DOMContentLoaded', () => {
 					const logsHeading = document.createElement('div');
 					logsHeading.className = 'settings-subheading';
 					logsHeading.style.marginTop = '0';
+					logsHeading.style.color = 'var(--text-light)';
 					logsHeading.style.display = 'flex';
 					logsHeading.style.justifyContent = 'space-between';
 					logsHeading.style.alignItems = 'center';
