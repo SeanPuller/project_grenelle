@@ -680,6 +680,12 @@ body {
 	padding: 8px 16px;
 }
 
+.sd-search {
+	display: block;
+	width: 100%;
+	margin-bottom: 12px;
+}
+
 .btn-dialog-add {
 	background-color: var(--primary-color);
 	border: none;

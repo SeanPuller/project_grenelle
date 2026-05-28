@@ -1,4 +1,4 @@
-const APP_VERSION = '0.67';
+const APP_VERSION = '0.68';
 document.addEventListener('DOMContentLoaded', () => {
 	const mainContent = document.getElementById('main-content');
 	const navLinks = document.querySelectorAll('.nav-link');
@@ -9,6 +9,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	let exerciseReturnView = 'exercises';
 	let homeLogsViewDate = null; // null means today
 	let globalIsReordering = false;
+	let exerciseSearchTerm = '';
 
 	const DEFAULT_COLORS = {
 		primary: '#beff5c',
@@ -388,6 +389,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 	const sdDialog = document.getElementById('selection-dialog');
 	const sdTitle = document.getElementById('sd-title');
+	const sdSearch = document.getElementById('sd-search');
 	const sdList = document.getElementById('sd-list');
 	const sdNewContainer = document.getElementById('sd-new-container');
 	const sdInput = document.getElementById('sd-input');
@@ -406,9 +408,11 @@ document.addEventListener('DOMContentLoaded', () => {
 		sdAddNewBtn.textContent = addNewText;
 
 		sdList.style.display = 'block';
+		sdSearch.style.display = 'block';
 		sdNewContainer.style.display = 'none';
 		sdAddNewBtn.style.display = showAddNew ? 'block' : 'none';
 		sdSaveBtn.style.display = 'none';
+		sdSearch.value = '';
 		sdInput.value = '';
 		isMultiSelect = false;
 		selectedValues.clear();
@@ -423,6 +427,14 @@ document.addEventListener('DOMContentLoaded', () => {
 				let options = optionsList.map(opt => typeof opt === 'string' ? { label: opt, value: opt } : opt);
 				if (typeof optionsList[0] === 'string') {
 					options.sort((a, b) => a.label.localeCompare(b.label));
+				}
+				const searchTerm = sdSearch.value.trim().toLowerCase();
+				if (searchTerm) {
+					options = options.filter(opt => opt.label.toLowerCase().includes(searchTerm));
+				}
+				if (options.length === 0) {
+					sdList.innerHTML = '<div style="color: gray; font-size: 14px; text-align: center; padding: 12px;">No matching entries</div>';
+					return;
 				}
 				options.forEach(opt => {
 					const div = document.createElement('div');
@@ -471,6 +483,7 @@ document.addEventListener('DOMContentLoaded', () => {
 			}
 		};
 
+		sdSearch.oninput = renderList;
 		renderList();
 		sdDialog.showModal();
 	}
@@ -479,6 +492,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 	sdAddNewBtn.addEventListener('click', () => {
 		sdList.style.display = 'none';
+		sdSearch.style.display = 'none';
 		sdAddNewBtn.style.display = 'none';
 		sdNewContainer.style.display = 'block';
 		sdSaveBtn.style.display = 'block';
@@ -1735,6 +1749,7 @@ document.addEventListener('DOMContentLoaded', () => {
 			}
 		} else if (viewName === 'exercises') {
 			const listContainer = content.getElementById('exercises-list');
+			const searchInput = content.getElementById('exercises-search');
 			const emptyState = content.getElementById('exercises-empty');
 
 			const mainAddBtn = content.querySelector('.main-add-row .btn-add');
@@ -1750,54 +1765,76 @@ document.addEventListener('DOMContentLoaded', () => {
 				});
 			}
 
-			if (data.exercises.length > 0) {
-				const sorted = [...data.exercises].sort((a, b) => a.name.localeCompare(b.name));
-				sorted.forEach(item => {
-					const div = document.createElement('div');
-					div.className = 'list-item';
-					div.style.display = 'flex';
-					div.style.alignItems = 'center';
+			const renderExercisesList = () => {
+				listContainer.innerHTML = '';
 
-					const textSpan = document.createElement('span');
-					textSpan.style.flex = '1';
-					textSpan.textContent = item.name;
-					textSpan.style.cursor = 'pointer';
-					div.appendChild(textSpan);
+				if (data.exercises.length > 0) {
+					const searchTerm = exerciseSearchTerm.trim().toLowerCase();
+					const sorted = [...data.exercises]
+						.filter(item => !searchTerm || item.name.toLowerCase().includes(searchTerm))
+						.sort((a, b) => a.name.localeCompare(b.name));
 
-					addLongPressListener(textSpan, () => {
-						renderInlineRename(textSpan, item.name, (newName) => {
-							renameExercise(item.name, newName);
-							renderView('exercises');
-						});
-					});
+					if (sorted.length === 0) {
+						emptyState.textContent = 'no matching exercises';
+						emptyState.style.display = 'block';
+						return;
+					}
 
-					const rmBtn = document.createElement('button');
-					rmBtn.className = 'btn-remove-sm material-icons-outlined';
-					rmBtn.textContent = 'close';
-					rmBtn.addEventListener('click', (e) => {
-						e.stopPropagation();
-						showConfirm(`Delete exercise "${item.name}" completely?`).then(confirmed => {
-							if (confirmed) {
-								data.exercises = data.exercises.filter(ex => ex.name !== item.name);
-								data.routines.forEach(r => {
-									r.items = r.items.filter(exItem => getRoutineItemName(exItem) !== item.name);
-								});
+					sorted.forEach(item => {
+						const div = document.createElement('div');
+						div.className = 'list-item';
+						div.style.display = 'flex';
+						div.style.alignItems = 'center';
+
+						const textSpan = document.createElement('span');
+						textSpan.style.flex = '1';
+						textSpan.textContent = item.name;
+						textSpan.style.cursor = 'pointer';
+						div.appendChild(textSpan);
+
+						addLongPressListener(textSpan, () => {
+							renderInlineRename(textSpan, item.name, (newName) => {
+								renameExercise(item.name, newName);
 								renderView('exercises');
-							}
+							});
 						});
-					});
-					div.appendChild(rmBtn);
 
-					div.addEventListener('click', () => {
-						currentExercise = item.name;
-						renderView('exercise-detail');
+						const rmBtn = document.createElement('button');
+						rmBtn.className = 'btn-remove-sm material-icons-outlined';
+						rmBtn.textContent = 'close';
+						rmBtn.addEventListener('click', (e) => {
+							e.stopPropagation();
+							showConfirm(`Delete exercise "${item.name}" completely?`).then(confirmed => {
+								if (confirmed) {
+									data.exercises = data.exercises.filter(ex => ex.name !== item.name);
+									data.routines.forEach(r => {
+										r.items = r.items.filter(exItem => getRoutineItemName(exItem) !== item.name);
+									});
+									renderView('exercises');
+								}
+							});
+						});
+						div.appendChild(rmBtn);
+
+						div.addEventListener('click', () => {
+							currentExercise = item.name;
+							renderView('exercise-detail');
+						});
+						listContainer.appendChild(div);
 					});
-					listContainer.appendChild(div);
-				});
-				emptyState.style.display = 'none';
-			} else {
-				emptyState.style.display = 'block';
-			}
+					emptyState.style.display = 'none';
+				} else {
+					emptyState.textContent = 'add exercise to begin';
+					emptyState.style.display = 'block';
+				}
+			};
+
+			searchInput.value = exerciseSearchTerm;
+			searchInput.addEventListener('input', () => {
+				exerciseSearchTerm = searchInput.value;
+				renderExercisesList();
+			});
+			renderExercisesList();
 		} else if (viewName === 'exercise-detail') {
 			// No detail header to update here anymore, handled globally
 			const exObj = getExerciseObj(currentExercise);
