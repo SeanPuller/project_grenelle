@@ -1,4 +1,4 @@
-const APP_VERSION = '0.73';
+const APP_VERSION = '0.74';
 document.addEventListener('DOMContentLoaded', () => {
 	const mainContent = document.getElementById('main-content');
 	const navLinks = document.querySelectorAll('.nav-link');
@@ -510,6 +510,7 @@ document.addEventListener('DOMContentLoaded', () => {
 		sdSearch.oninput = renderList;
 		renderList();
 		sdDialog.showModal();
+		sdSearch.blur();
 	}
 
 	sdCancel.addEventListener('click', () => sdDialog.close());
