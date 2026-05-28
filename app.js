@@ -1,4 +1,4 @@
-const APP_VERSION = '0.69';
+const APP_VERSION = '0.70';
 document.addEventListener('DOMContentLoaded', () => {
 	const mainContent = document.getElementById('main-content');
 	const navLinks = document.querySelectorAll('.nav-link');
@@ -368,6 +368,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	const headerTitle = appHeader.querySelector('.header-title');
 	const settingsIcon = appHeader.querySelector('.settings-icon');
 	const headerEditIcon = appHeader.querySelector('.header-edit-icon');
+	const headerAddHomeIcon = appHeader.querySelector('.header-add-home-icon');
 
 	if (settingsIcon) {
 		settingsIcon.addEventListener('click', () => {
@@ -384,6 +385,16 @@ document.addEventListener('DOMContentLoaded', () => {
 	if (headerEditIcon) {
 		headerEditIcon.addEventListener('click', () => {
 			renderView('exercise-edit');
+		});
+	}
+
+	if (headerAddHomeIcon) {
+		headerAddHomeIcon.addEventListener('click', () => {
+			const itemsForToday = getHomeItemsForDate(getCurrentDate());
+			itemsForToday.push(currentExercise);
+			getExerciseObj(currentExercise);
+			saveData();
+			showAlert(`Added "${currentExercise}" to home.`);
 		});
 	}
 
@@ -1074,6 +1085,7 @@ document.addEventListener('DOMContentLoaded', () => {
 			headerTitle.style.display = 'none';
 			settingsIcon.style.display = 'flex';
 			headerEditIcon.style.display = 'none';
+			headerAddHomeIcon.style.display = 'none';
 		} else {
 			topNav.style.display = 'none';
 			logo.style.display = 'none';
@@ -1084,12 +1096,15 @@ document.addEventListener('DOMContentLoaded', () => {
 			if (viewName === 'settings') {
 				headerTitle.textContent = 'settings';
 				headerEditIcon.style.display = 'none';
+				headerAddHomeIcon.style.display = 'none';
 			} else if (viewName === 'exercise-detail') {
 				headerTitle.textContent = currentExercise;
 				headerEditIcon.style.display = 'block';
+				headerAddHomeIcon.style.display = 'block';
 			} else if (viewName === 'exercise-edit') {
 				headerTitle.textContent = `edit ${currentExercise}`;
 				headerEditIcon.style.display = 'none';
+				headerAddHomeIcon.style.display = 'none';
 			}
 		}
 

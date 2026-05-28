@@ -65,6 +65,7 @@ body {
 
 .header-right {
 	justify-content: flex-end;
+	gap: 12px;
 }
 
 .header-center {
@@ -91,7 +92,8 @@ body {
 	font-weight: bold;
 }
 
-.header-edit-icon {
+.header-edit-icon,
+.header-add-home-icon {
 	font-size: 20px;
 	cursor: pointer;
 }
