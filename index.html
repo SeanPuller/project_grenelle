@@ -33,6 +33,9 @@
 				<span class="header-title" style="display: none;"></span>
 			</div>
 			<div class="header-right">
+				<div class="clipboard-icon" style="display: none; cursor: pointer; margin-right: 4px;">
+					<span class="material-icons-outlined">share</span>
+				</div>
 				<div class="settings-icon">
 					<span class="material-icons-outlined">settings</span>
 				</div>
@@ -285,6 +288,39 @@
 			</div>
 			<div style="text-align: center; color: var(--text-disabled); font-size: 12px; margin-top: 24px;"
 				id="app-version"></div>
+		</div>
+	</template>
+
+	<template id="view-data-page">
+		<div class="data-page-view">
+			<div class="list-container" style="margin-top: 24px;">
+				<div class="settings-subheading" style="margin-top: 0;">date selection</div>
+				
+				<div class="date-pickers-row" style="display: flex; gap: 16px; margin-bottom: 16px;">
+					<div class="date-picker-box" id="btn-start-date" style="flex: 1; border: 1px solid var(--border-color); padding: 12px; text-align: center; cursor: pointer;">
+						<div style="font-size: 11px; color: var(--text-light); text-transform: lowercase;">start date</div>
+						<div id="start-date-label" style="font-weight: 600; margin-top: 4px;">-</div>
+					</div>
+					<div class="date-picker-box" id="btn-end-date" style="flex: 1; border: 1px solid var(--border-color); padding: 12px; text-align: center; cursor: pointer;">
+						<div style="font-size: 11px; color: var(--text-light); text-transform: lowercase;">end date</div>
+						<div id="end-date-label" style="font-weight: 600; margin-top: 4px;">-</div>
+					</div>
+				</div>
+
+				<div class="presets-container" style="display: flex; flex-wrap: wrap; gap: 8px;">
+					<button type="button" class="preset-btn" data-preset="today">today</button>
+					<button type="button" class="preset-btn" data-preset="this-week">this week</button>
+					<button type="button" class="preset-btn" data-preset="this-month">this month</button>
+				</div>
+
+				<div class="settings-subheading">preview</div>
+				<div class="preview-container" style="border: 1px solid var(--border-color); padding: 12px; background: rgba(0,0,0,0.02); border-radius: 4px; margin-bottom: 24px; min-height: 100px; max-height: 250px; overflow-y: auto; white-space: pre-wrap; font-family: monospace; font-size: 12px; color: var(--text-dark);" id="data-preview"></div>
+
+				<div style="display: flex; gap: 12px; margin-top: 12px;">
+					<button type="button" class="btn-large-add" id="btn-copy-data" style="flex: 1; margin-bottom: 0;">copy</button>
+					<button type="button" class="btn-large-add" id="btn-share-data" style="flex: 1; margin-bottom: 0; background-color: var(--btn-secondary-bg); color: var(--text-dark);">share</button>
+				</div>
+			</div>
 		</div>
 	</template>
 

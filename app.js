@@ -1,4 +1,4 @@
-const APP_VERSION = '0.74';
+const APP_VERSION = '0.75';
 document.addEventListener('DOMContentLoaded', () => {
 	const mainContent = document.getElementById('main-content');
 	const navLinks = document.querySelectorAll('.nav-link');
@@ -379,12 +379,19 @@ document.addEventListener('DOMContentLoaded', () => {
 	const backBtn = appHeader.querySelector('.back-btn');
 	const headerTitle = appHeader.querySelector('.header-title');
 	const settingsIcon = appHeader.querySelector('.settings-icon');
+	const clipboardIcon = appHeader.querySelector('.clipboard-icon');
 	const headerEditIcon = appHeader.querySelector('.header-edit-icon');
 	const headerAddHomeIcon = appHeader.querySelector('.header-add-home-icon');
 
 	if (settingsIcon) {
 		settingsIcon.addEventListener('click', () => {
 			renderView('settings');
+		});
+	}
+
+	if (clipboardIcon) {
+		clipboardIcon.addEventListener('click', () => {
+			renderView('data-page');
 		});
 	}
 
@@ -612,9 +619,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
 	let calViewDate = new Date(); // Month currently being viewed in calendar
 	let calOnSelect = null;
+	let calSelectedDateStr = null;
 
-	function openCalendarDialog(initialDateStr, onSelect) {
+	function openCalendarDialog(initialDateStr, onSelect, selectedDateStr = null) {
 		calOnSelect = onSelect;
+		calSelectedDateStr = selectedDateStr;
 
 		// Parse initial date (dd-mm-yyyy)
 		const parts = initialDateStr.split('-');
@@ -638,7 +647,7 @@ document.addEventListener('DOMContentLoaded', () => {
 		});
 
 		const todayStr = new Date().toLocaleDateString('en-GB').replace(/\//g, '-');
-		const selectedStr = homeLogsViewDate || todayStr;
+		const selectedStr = calSelectedDateStr || homeLogsViewDate || todayStr;
 
 		// Start of month
 		const firstDay = new Date(year, month, 1).getDay();
@@ -1036,7 +1045,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 	function renderView(viewName, pushToHistory = true) {
 		const mainTabs = ['programs', 'routines', 'exercises'];
-		const subViews = ['exercise-detail', 'exercise-edit', 'settings'];
+		const subViews = ['exercise-detail', 'exercise-edit', 'settings', 'data-page'];
 
 		if (viewName === 'exercise-detail' && ['home', 'programs', 'routines', 'exercises'].includes(currentViewName)) {
 			exerciseReturnView = currentViewName;
@@ -1098,6 +1107,7 @@ document.addEventListener('DOMContentLoaded', () => {
 			backBtn.style.display = 'none';
 			headerTitle.style.display = 'none';
 			settingsIcon.style.display = 'flex';
+			if (clipboardIcon) clipboardIcon.style.display = 'flex';
 			headerEditIcon.style.display = 'none';
 			headerAddHomeIcon.style.display = 'none';
 		} else {
@@ -1106,6 +1116,7 @@ document.addEventListener('DOMContentLoaded', () => {
 			backBtn.style.display = 'block';
 			headerTitle.style.display = 'block';
 			settingsIcon.style.display = 'none';
+			if (clipboardIcon) clipboardIcon.style.display = 'none';
 
 			if (viewName === 'settings') {
 				headerTitle.textContent = 'settings';
@@ -1117,6 +1128,10 @@ document.addEventListener('DOMContentLoaded', () => {
 				headerAddHomeIcon.style.display = 'block';
 			} else if (viewName === 'exercise-edit') {
 				headerTitle.textContent = `edit ${currentExercise}`;
+				headerEditIcon.style.display = 'none';
+				headerAddHomeIcon.style.display = 'none';
+			} else if (viewName === 'data-page') {
+				headerTitle.textContent = 'share data';
 				headerEditIcon.style.display = 'none';
 				headerAddHomeIcon.style.display = 'none';
 			}
@@ -3173,10 +3188,275 @@ document.addEventListener('DOMContentLoaded', () => {
 					});
 				});
 			}
+		} else if (viewName === 'data-page') {
+			initializeDataPageView(content);
 		}
 
 		mainContent.appendChild(content);
 		saveData();
+	}
+
+	function initializeDataPageView(content) {
+		const startDateBox = content.querySelector('#btn-start-date');
+		const startDateLabel = content.querySelector('#start-date-label');
+		const endDateBox = content.querySelector('#btn-end-date');
+		const endDateLabel = content.querySelector('#end-date-label');
+		const previewEl = content.querySelector('#data-preview');
+		const copyBtn = content.querySelector('#btn-copy-data');
+		const shareBtn = content.querySelector('#btn-share-data');
+		const presetBtns = content.querySelectorAll('.preset-btn');
+
+		// State
+		let startDate = getTodayDateObject();
+		let endDate = getTodayDateObject();
+
+		function getTodayDateObject() {
+			const todayStr = getCurrentDate();
+			return parseDateStr(todayStr);
+		}
+
+		function parseDateStr(str) {
+			const [d, m, y] = str.split('-').map(Number);
+			return new Date(y, m - 1, d);
+		}
+
+		function formatDateStr(date) {
+			const d = date.getDate().toString().padStart(2, '0');
+			const m = (date.getMonth() + 1).toString().padStart(2, '0');
+			const y = date.getFullYear();
+			return `${d}-${m}-${y}`;
+		}
+
+		function updateLabels() {
+			if (startDateLabel) startDateLabel.textContent = formatDateStr(startDate);
+			if (endDateLabel) endDateLabel.textContent = formatDateStr(endDate);
+			updatePreview();
+		}
+
+		function updatePreview() {
+			if (!previewEl) return;
+			const text = generateLogsText(startDate, endDate);
+			previewEl.textContent = text || 'no logs found for this period';
+			if (copyBtn) {
+				if (!text) {
+					copyBtn.setAttribute('disabled', 'true');
+					copyBtn.style.opacity = '0.5';
+				} else {
+					copyBtn.removeAttribute('disabled');
+					copyBtn.style.opacity = '1';
+				}
+			}
+			if (shareBtn) {
+				if (!text) {
+					shareBtn.setAttribute('disabled', 'true');
+					shareBtn.style.opacity = '0.5';
+				} else {
+					shareBtn.removeAttribute('disabled');
+					shareBtn.style.opacity = '1';
+				}
+			}
+		}
+
+		// Click handlers for Custom Pickers
+		if (startDateBox) {
+			startDateBox.addEventListener('click', () => {
+				const dateStr = formatDateStr(startDate);
+				openCalendarDialog(dateStr, (selected) => {
+					startDate = parseDateStr(selected);
+					// Deactivate preset buttons
+					presetBtns.forEach(b => b.classList.remove('active'));
+					// If start date > end date, push end date forward
+					if (startDate > endDate) {
+						endDate = new Date(startDate);
+					}
+					updateLabels();
+				}, dateStr);
+			});
+		}
+
+		if (endDateBox) {
+			endDateBox.addEventListener('click', () => {
+				const dateStr = formatDateStr(endDate);
+				openCalendarDialog(dateStr, (selected) => {
+					endDate = parseDateStr(selected);
+					// Deactivate preset buttons
+					presetBtns.forEach(b => b.classList.remove('active'));
+					// If end date < start date, push start date backward
+					if (endDate < startDate) {
+						startDate = new Date(endDate);
+					}
+					updateLabels();
+				}, dateStr);
+			});
+		}
+
+		// Preset Selection
+		presetBtns.forEach(btn => {
+			btn.addEventListener('click', (e) => {
+				presetBtns.forEach(b => b.classList.remove('active'));
+				btn.classList.add('active');
+
+				const preset = btn.dataset.preset;
+				const todayObj = getTodayDateObject();
+
+				if (preset === 'today') {
+					startDate = todayObj;
+					endDate = todayObj;
+				} else if (preset === 'this-week') {
+					const mon = new Date(todayObj);
+					const day = mon.getDay();
+					const offset = (day === 0) ? 6 : day - 1;
+					mon.setDate(mon.getDate() - offset);
+					startDate = mon;
+					endDate = todayObj;
+				} else if (preset === 'this-month') {
+					const start = new Date(todayObj.getFullYear(), todayObj.getMonth(), 1);
+					startDate = start;
+					endDate = todayObj;
+				}
+				updateLabels();
+			});
+		});
+
+		// Actions
+		if (copyBtn) {
+			copyBtn.addEventListener('click', () => {
+				const text = generateLogsText(startDate, endDate);
+				if (!text) return;
+				navigator.clipboard.writeText(text).then(() => {
+					const originalText = copyBtn.textContent;
+					copyBtn.textContent = 'copied!';
+					setTimeout(() => {
+						copyBtn.textContent = originalText;
+					}, 1500);
+				});
+			});
+		}
+
+		if (shareBtn) {
+			shareBtn.addEventListener('click', () => {
+				const text = generateLogsText(startDate, endDate);
+				if (!text) return;
+				if (navigator.share) {
+					navigator.share({
+						title: 'Workout Data',
+						text: text
+					}).catch(err => {
+						console.log('Share failed or cancelled', err);
+					});
+				} else {
+					// Fallback to copying to clipboard
+					navigator.clipboard.writeText(text).then(() => {
+						const originalText = shareBtn.textContent;
+						shareBtn.textContent = 'copied!';
+						setTimeout(() => {
+							shareBtn.textContent = originalText;
+						}, 1500);
+					});
+				}
+			});
+		}
+
+		// Initial display
+		// Start with "today" preset active
+		const todayBtn = content.querySelector('.preset-btn[data-preset="today"]');
+		if (todayBtn) {
+			todayBtn.classList.add('active');
+		}
+		updateLabels();
+	}
+
+	function generateLogsText(start, end) {
+		const startCopy = new Date(start);
+		const endCopy = new Date(end);
+		
+		// Sort just in case
+		const s = startCopy < endCopy ? startCopy : endCopy;
+		const e = startCopy < endCopy ? endCopy : startCopy;
+
+		const dateStrings = [];
+		let current = new Date(s);
+		while (current <= e) {
+			const d = current.getDate().toString().padStart(2, '0');
+			const m = (current.getMonth() + 1).toString().padStart(2, '0');
+			const y = current.getFullYear();
+			dateStrings.push(`${d}-${m}-${y}`);
+			current.setDate(current.getDate() + 1);
+		}
+
+		let fullText = '';
+
+		dateStrings.forEach(dateStr => {
+			const dayTags = data.home && data.home.tags ? (data.home.tags[dateStr] || []) : [];
+			const dayLogs = [];
+			data.exercises.forEach(ex => {
+				if (ex.logs) {
+					ex.logs.forEach(log => {
+						if (log.date === dateStr) {
+							dayLogs.push({ ex, log });
+						}
+					});
+				}
+			});
+
+			if (dayTags.length === 0 && dayLogs.length === 0) {
+				return;
+			}
+
+			let dayText = `${dateStr}\n`;
+			if (dayTags.length > 0) {
+				dayText += dayTags.map(t => `#${t}`).join(' ') + '\n';
+			}
+			dayText += '\n';
+
+			if (dayLogs.length > 0) {
+				const byExercise = {};
+				dayLogs.forEach(({ ex, log }) => {
+					if (!byExercise[ex.name]) byExercise[ex.name] = { ex, logs: [], firstTs: Infinity };
+					byExercise[ex.name].logs.push(log);
+					const ts = log.ts || 0;
+					if (ts < byExercise[ex.name].firstTs) byExercise[ex.name].firstTs = ts;
+				});
+
+				const sortedExercises = Object.entries(byExercise)
+					.sort(([, a], [, b]) => a.firstTs - b.firstTs);
+
+				sortedExercises.forEach(([exName, { ex, logs }]) => {
+					dayText += `${exName}\n`;
+					let workSetCount = 0;
+					logs.forEach(set => {
+						const setType = set.type || 's';
+						let setLabel;
+						if (setType === 'w') setLabel = 'W';
+						else if (setType === 'p') setLabel = 'P';
+						else { workSetCount++; setLabel = workSetCount.toString(); }
+
+						let metrics = Object.entries(set.data).map(([k, v]) => `${v}${k}`).join(' ');
+						if (set.data.kg !== undefined && set.data.reps !== undefined) {
+							metrics = `${set.data.kg}kg x ${set.data.reps}`;
+							const others = Object.entries(set.data).filter(([k]) => k !== 'kg' && k !== 'reps');
+							if (others.length > 0) {
+								metrics += ' ' + others.map(([k, v]) => `${v}${k}`).join(' ');
+							}
+						}
+						
+						const setTags = getSetTags(set);
+						const tagsStr = setTags.length > 0 ? ' ' + setTags.map(t => `#${t}`).join(' ') : '';
+						
+						dayText += `${setLabel}. ${metrics}${tagsStr}\n`;
+					});
+					dayText += '\n';
+				});
+			}
+
+			fullText += dayText + '---\n\n';
+		});
+
+		if (fullText.endsWith('---\n\n')) {
+			fullText = fullText.slice(0, -6);
+		}
+
+		return fullText.trim();
 	}
 
 	navLinks.forEach(link => {
