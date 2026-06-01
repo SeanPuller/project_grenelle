@@ -856,6 +856,62 @@ body {
 	display: block;
 }
 
+.preview-container {
+	position: relative;
+	border: 1px solid var(--border-color);
+	padding: 12px;
+	background: rgba(0, 0, 0, 0.02);
+	border-radius: 4px;
+	margin-bottom: 24px;
+	min-height: 100px;
+	max-height: 250px;
+	overflow: hidden;
+}
+
+.preview-controls {
+	position: absolute;
+	top: 8px;
+	right: 8px;
+	display: flex;
+	gap: 8px;
+	z-index: 1;
+}
+
+.icon-btn {
+	border: none;
+	background: transparent;
+	color: var(--text-dark);
+	width: 40px;
+	height: 40px;
+	border-radius: 50%;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	cursor: pointer;
+	padding: 0;
+	touch-action: manipulation;
+}
+
+.icon-btn.secondary {
+	background: transparent;
+}
+
+.icon-btn:disabled {
+	opacity: 0.45;
+	cursor: not-allowed;
+}
+
+.preview-text {
+	margin-top: 0;
+	min-height: 100px;
+	max-height: 220px;
+	overflow-y: auto;
+	white-space: pre-wrap;
+	font-family: monospace;
+	font-size: 12px;
+	color: var(--text-dark);
+}
+
 .preset-btn {
 	background-color: var(--btn-secondary-bg);
 	color: var(--text-dark);
@@ -879,10 +935,51 @@ body {
 }
 
 .date-picker-box {
+	flex: 1;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 8px;
+	padding: 8px 0 4px;
+	border: none;
+	border-radius: 8px;
 	transition: background-color 0.2s, border-color 0.2s;
 }
 
 .date-picker-box:hover {
-	border-color: var(--text-dark) !important;
 	background-color: rgba(0, 0, 0, 0.02);
+}
+
+.date-pickers-row {
+	display: flex;
+	gap: 16px;
+	margin-bottom: 16px;
+}
+
+.date-picker-meta {
+	font-size: 11px;
+	color: var(--text-light);
+	text-transform: lowercase;
+}
+
+.date-picker-trigger {
+	background: transparent;
+	border: none;
+	cursor: pointer;
+	padding: 0;
+	font: inherit;
+	color: inherit;
+}
+
+.date-picker-date {
+	display: inline-block;
+	font-size: 14px;
+	font-weight: 600;
+	line-height: 1.2;
+	padding: 0 4px;
+	background: var(--primary-color);
+}
+
+.date-picker-trigger:hover .date-picker-date {
+	background: var(--primary-color);
 }

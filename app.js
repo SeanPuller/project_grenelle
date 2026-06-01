@@ -1,4 +1,4 @@
-const APP_VERSION = '0.75';
+const APP_VERSION = '0.76';
 document.addEventListener('DOMContentLoaded', () => {
 	const mainContent = document.getElementById('main-content');
 	const navLinks = document.querySelectorAll('.nav-link');
@@ -3323,36 +3323,50 @@ document.addEventListener('DOMContentLoaded', () => {
 			copyBtn.addEventListener('click', () => {
 				const text = generateLogsText(startDate, endDate);
 				if (!text) return;
+				const icon = copyBtn.querySelector('.material-icons-outlined');
 				navigator.clipboard.writeText(text).then(() => {
-					const originalText = copyBtn.textContent;
-					copyBtn.textContent = 'copied!';
-					setTimeout(() => {
-						copyBtn.textContent = originalText;
-					}, 1500);
+					if (icon) {
+						const originalIcon = icon.textContent;
+						icon.textContent = 'done';
+						setTimeout(() => {
+							icon.textContent = originalIcon;
+						}, 1500);
+					}
 				});
 			});
 		}
 
 		if (shareBtn) {
+			const shareIcon = shareBtn.querySelector('.material-icons-outlined');
+			const fallbackShare = (text) => {
+				if (!navigator.clipboard) return;
+				navigator.clipboard.writeText(text).then(() => {
+					if (shareIcon) {
+						const originalIcon = shareIcon.textContent;
+						shareIcon.textContent = 'done';
+						setTimeout(() => {
+							shareIcon.textContent = originalIcon;
+						}, 1500);
+					}
+				});
+			};
+
 			shareBtn.addEventListener('click', () => {
 				const text = generateLogsText(startDate, endDate);
 				if (!text) return;
+
 				if (navigator.share) {
 					navigator.share({
 						title: 'Workout Data',
 						text: text
 					}).catch(err => {
 						console.log('Share failed or cancelled', err);
+						if (err && err.name !== 'AbortError') {
+							fallbackShare(text);
+						}
 					});
 				} else {
-					// Fallback to copying to clipboard
-					navigator.clipboard.writeText(text).then(() => {
-						const originalText = shareBtn.textContent;
-						shareBtn.textContent = 'copied!';
-						setTimeout(() => {
-							shareBtn.textContent = originalText;
-						}, 1500);
-					});
+					fallbackShare(text);
 				}
 			});
 		}
