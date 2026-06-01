@@ -1,4 +1,4 @@
-const APP_VERSION = '0.76';
+const APP_VERSION = '0.77';
 document.addEventListener('DOMContentLoaded', () => {
 	const mainContent = document.getElementById('main-content');
 	const navLinks = document.querySelectorAll('.nav-link');
@@ -3492,21 +3492,125 @@ document.addEventListener('DOMContentLoaded', () => {
 		}
 	}
 
-	if (floatingTimer) {
-		floatingTimer.addEventListener('click', () => {
-			if (timerInterval) {
+	let timerDragStartY = null;
+	let timerDragSeconds = 0;
+	let timerDragged = false;
+
+	let timerAudioContext = null;
+
+	function playTimerBeep() {
+		try {
+			if (!window.AudioContext && !window.webkitAudioContext) return;
+			if (!timerAudioContext) {
+				timerAudioContext = new (window.AudioContext || window.webkitAudioContext)();
+			}
+			if (timerAudioContext.state === 'suspended') {
+				void timerAudioContext.resume();
+			}
+			const oscillator = timerAudioContext.createOscillator();
+			const gain = timerAudioContext.createGain();
+			oscillator.frequency.value = 880;
+			gain.gain.setValueAtTime(0.12, timerAudioContext.currentTime);
+			gain.gain.exponentialRampToValueAtTime(0.001, timerAudioContext.currentTime + 0.15);
+			oscillator.connect(gain);
+			gain.connect(timerAudioContext.destination);
+			oscillator.start();
+			oscillator.stop(timerAudioContext.currentTime + 0.15);
+		} catch (e) {
+			console.warn('Timer beep failed', e);
+		}
+	}
+
+	function stopTimer(reset = false) {
+		if (timerInterval) {
+			clearInterval(timerInterval);
+			timerInterval = null;
+		}
+		if (reset) {
+			timerSeconds = 0;
+		}
+		updateTimerDisplay();
+		floatingTimer.style.opacity = '1';
+	}
+
+	function startCountUp() {
+		timerSeconds = 0;
+		stopTimer(false);
+		timerInterval = setInterval(() => {
+			timerSeconds++;
+			updateTimerDisplay();
+		}, 1000);
+		floatingTimer.style.opacity = '0.9';
+	}
+
+	function startCountDown(seconds) {
+		stopTimer(true);
+		timerSeconds = seconds;
+		updateTimerDisplay();
+		timerInterval = setInterval(() => {
+			if (timerSeconds <= 1) {
 				clearInterval(timerInterval);
 				timerInterval = null;
 				timerSeconds = 0;
 				updateTimerDisplay();
+				playTimerBeep();
 				floatingTimer.style.opacity = '1';
-			} else {
-				timerInterval = setInterval(() => {
-					timerSeconds++;
-					updateTimerDisplay();
-				}, 1000);
+				return;
+			}
+			timerSeconds--;
+			updateTimerDisplay();
+		}, 1000);
+		floatingTimer.style.opacity = '0.9';
+	}
+
+	if (floatingTimer) {
+		floatingTimer.style.touchAction = 'none';
+
+		floatingTimer.addEventListener('pointerdown', (e) => {
+			timerDragStartY = e.clientY;
+			timerDragSeconds = 0;
+			timerDragged = false;
+			floatingTimer.setPointerCapture(e.pointerId);
+		});
+
+		floatingTimer.addEventListener('pointermove', (e) => {
+			if (timerDragStartY === null) return;
+			const deltaY = timerDragStartY - e.clientY;
+			if (deltaY < 30) {
+				return;
+			}
+			const increments = Math.floor(deltaY / 30);
+			const newSeconds = increments * 30;
+			if (newSeconds !== timerDragSeconds) {
+				timerDragged = true;
+				timerDragSeconds = newSeconds;
+				timerSeconds = timerDragSeconds;
+				updateTimerDisplay();
 				floatingTimer.style.opacity = '0.9';
 			}
+		});
+
+		floatingTimer.addEventListener('pointerup', (e) => {
+			floatingTimer.releasePointerCapture(e.pointerId);
+			if (timerDragged && timerDragSeconds > 0) {
+				startCountDown(timerDragSeconds);
+			} else {
+				if (timerInterval) {
+					stopTimer(true);
+				} else {
+					startCountUp();
+				}
+			}
+			timerDragStartY = null;
+			timerDragSeconds = 0;
+			timerDragged = false;
+		});
+
+		floatingTimer.addEventListener('pointercancel', (e) => {
+			floatingTimer.releasePointerCapture(e.pointerId);
+			timerDragStartY = null;
+			timerDragSeconds = 0;
+			timerDragged = false;
 		});
 	}
 
