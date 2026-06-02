@@ -572,6 +572,105 @@ body {
 	font-weight: 600;
 }
 
+.strength-standard-graph-wrapper {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	margin-top: 8px;
+	margin-bottom: 8px;
+}
+
+.strength-standard-graph {
+	position: relative;
+	height: 48px;
+	background-color: transparent;
+	overflow: visible;
+}
+
+.strength-standard-line {
+	position: absolute;
+	left: 0;
+	right: 0;
+	top: 50%;
+	height: 2px;
+	background-color: var(--text-dark);
+	transform: translateY(-50%);
+}
+
+.strength-standard-marker,
+.strength-standard-best-marker {
+	position: absolute;
+	top: 50%;
+	transform: translate(-50%, -50%);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	overflow: visible;
+}
+
+.strength-standard-marker {
+	width: 18px;
+	height: 18px;
+	border-radius: 50%;
+	background-color: var(--primary-color);
+	border: 1px solid var(--text-dark);
+	color: var(--text-dark);
+	font-size: 10px;
+	font-weight: 700;
+	text-transform: uppercase;
+}
+
+.strength-standard-marker .strength-standard-weight,
+.strength-standard-marker .strength-standard-label {
+	position: absolute;
+	left: 50%;
+	transform: translateX(-50%);
+	font-size: 10px;
+	color: var(--text-dark);
+	white-space: nowrap;
+	background-color: rgba(255, 255, 255, 0.95);
+	padding: 0 3px;
+	border-radius: 3px;
+}
+
+.strength-standard-marker .strength-standard-label {
+	top: -18px;
+}
+
+.strength-standard-marker .strength-standard-weight {
+	top: 22px;
+}
+
+.strength-standard-best-marker {
+	width: 16px;
+	height: 16px;
+	border-radius: 50%;
+	background-color: var(--text-dark);
+	border: 1px solid var(--text-dark);
+}
+
+.strength-standard-best-marker::after {
+	content: none;
+}
+
+.strength-standard-hide-text .strength-standard-label,
+.strength-standard-hide-text .strength-standard-weight {
+	display: none;
+}
+
+.strength-standard-placeholder {
+	font-size: 13px;
+	color: var(--text-light);
+	padding: 8px 0;
+}
+
+.strength-standards-body {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	padding-left: 4px;
+}
+
 .settings-view .settings-subheading {
 	display: flex;
 	align-items: center;

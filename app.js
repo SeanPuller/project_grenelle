@@ -1,4 +1,4 @@
-const APP_VERSION = '0.78';
+const APP_VERSION = '0.79';
 document.addEventListener('DOMContentLoaded', () => {
 	const mainContent = document.getElementById('main-content');
 	const navLinks = document.querySelectorAll('.nav-link');
@@ -1039,8 +1039,11 @@ document.addEventListener('DOMContentLoaded', () => {
 	function getExerciseObj(name) {
 		let ex = data.exercises.find(e => e.name === name);
 		if (!ex) {
-			ex = { name: name, types: ['kg', 'reps'], logs: [], notes: '' };
+			ex = { name: name, types: ['kg', 'reps'], logs: [], notes: '', strengthStandards: {} };
 			data.exercises.push(ex);
+		}
+		if (!ex.strengthStandards) {
+			ex.strengthStandards = {};
 		}
 		return ex;
 	}
@@ -1924,10 +1927,12 @@ document.addEventListener('DOMContentLoaded', () => {
 			function renderDataTab() {
 				const recordsList = document.getElementById('exercise-records-list');
 				const statsList = document.getElementById('exercise-stats-list');
+				const strengthStandardsSection = document.getElementById('exercise-strength-standards');
 				const filterContainer = document.getElementById('exercise-data-filters');
-				if (!recordsList || !statsList) return;
+				if (!recordsList || !statsList || !strengthStandardsSection) return;
 
 				recordsList.innerHTML = '';
+				strengthStandardsSection.innerHTML = '';
 				statsList.innerHTML = '';
 
 				// Tag filtering UI
@@ -2021,7 +2026,6 @@ document.addEventListener('DOMContentLoaded', () => {
 				if (workingLogs.length === 0) {
 					const hasFilters = Object.keys(dataTagFilters).length > 0;
 					recordsList.innerHTML = `<div class="empty-state-row" style="border:none">${hasFilters ? 'no data matching filters' : 'no working sets recorded'}</div>`;
-					return;
 				}
 
 				let heaviestWeight = 0;
@@ -2115,6 +2119,172 @@ document.addEventListener('DOMContentLoaded', () => {
 				recordsList.appendChild(createRecordItem('Best 1RM', best1RM > 0 ? `${Math.round(best1RM)} kg` : '-', best1RMLog));
 				recordsList.appendChild(createRecordItem('Best Set Volume', bestSetVolume > 0 ? `${Math.round(bestSetVolume)} kg` : '-', bestSetVolumeLog));
 				recordsList.appendChild(createRecordItem('Best Session Volume', bestSessionVolume > 0 ? `${Math.round(bestSessionVolume)} kg` : '-', null, bestSessionVolumeDate));
+
+				const renderStrengthStandards = () => {
+					const standards = exObj.strengthStandards || {};
+					const levels = ['beginner', 'novice', 'intermediate', 'advanced', 'elite'];
+
+					const header = document.createElement('div');
+					header.className = 'settings-subheading';
+					header.style.display = 'flex';
+					header.style.alignItems = 'center';
+					header.style.justifyContent = 'space-between';
+					header.style.cursor = 'pointer';
+					header.textContent = 'strength standards';
+
+					const icon = document.createElement('span');
+					icon.className = 'material-icons-outlined settings-collapse-icon';
+					icon.textContent = 'chevron_right';
+					header.appendChild(icon);
+
+					const graphWrapper = document.createElement('div');
+					graphWrapper.className = 'strength-standard-graph-wrapper';
+					strengthStandardsSection.appendChild(header);
+					strengthStandardsSection.appendChild(graphWrapper);
+
+					const body = document.createElement('div');
+					body.className = 'strength-standards-body';
+					body.style.display = 'none';
+
+					header.addEventListener('click', () => {
+						const expanded = body.style.display !== 'none';
+						body.style.display = expanded ? 'none' : '';
+						icon.textContent = expanded ? 'chevron_right' : 'expand_more';
+					});
+
+					const bestRow = document.createElement('div');
+					bestRow.className = 'list-item';
+					bestRow.style.display = 'flex';
+					bestRow.style.justifyContent = 'space-between';
+					bestRow.style.alignItems = 'center';
+					bestRow.innerHTML = `
+						<span style="font-weight:600">Best 1RM</span>
+						<span style="font-weight:600">${best1RM > 0 ? `${Math.round(best1RM)} kg` : '-'}</span>
+					`;
+					body.appendChild(bestRow);
+
+					levels.forEach(level => {
+						const row = document.createElement('div');
+						row.className = 'list-item';
+						row.style.display = 'flex';
+						row.style.justifyContent = 'space-between';
+						row.style.alignItems = 'center';
+						row.style.gap = '12px';
+
+						const label = document.createElement('span');
+						label.textContent = level;
+						label.style.textTransform = 'capitalize';
+
+						const input = document.createElement('input');
+						input.type = 'number';
+						input.className = 'val-input';
+						input.style.width = '80px';
+						input.style.textAlign = 'right';
+						input.placeholder = 'kg';
+						input.value = standards[level] !== undefined ? standards[level] : '';
+						input.addEventListener('input', () => {
+							const value = input.value.trim();
+							if (value === '') {
+								delete exObj.strengthStandards[level];
+							} else {
+								exObj.strengthStandards[level] = parseFloat(value);
+							}
+							renderStandardGraph(graphWrapper, best1RM, levels, exObj.strengthStandards || {});
+							saveData();
+						});
+
+						const suffix = document.createElement('span');
+						suffix.className = 'unit';
+						suffix.textContent = 'kg';
+
+						const rightWrap = document.createElement('div');
+						rightWrap.style.display = 'flex';
+						rightWrap.style.alignItems = 'center';
+						rightWrap.style.gap = '8px';
+						rightWrap.appendChild(input);
+						rightWrap.appendChild(suffix);
+
+						row.appendChild(label);
+						row.appendChild(rightWrap);
+						body.appendChild(row);
+					});
+
+					strengthStandardsSection.appendChild(body);
+					renderStandardGraph(graphWrapper, best1RM, levels, standards);
+				};
+
+				function renderStandardGraph(wrapper, best1RMValue, levels, standards) {
+					wrapper.innerHTML = '';
+
+					const entries = levels
+						.map(level => ({ level, value: parseFloat(standards[level]) }))
+						.filter(entry => !isNaN(entry.value))
+						.sort((a, b) => a.value - b.value);
+
+					const graph = document.createElement('div');
+					graph.className = 'strength-standard-graph';
+
+					const line = document.createElement('div');
+					line.className = 'strength-standard-line';
+					graph.appendChild(line);
+
+					if (entries.length === 0) {
+						const placeholder = document.createElement('div');
+						placeholder.className = 'strength-standard-placeholder';
+						placeholder.textContent = 'Enter strength standards to display the 1D graph.';
+						wrapper.appendChild(placeholder);
+						return;
+					}
+
+					const minValue = entries[0].value;
+					const maxValue = entries[entries.length - 1].value;
+					const range = Math.max(1, maxValue - minValue);
+
+					const markers = [];
+					entries.forEach(entry => {
+						const marker = document.createElement('div');
+						marker.className = 'strength-standard-marker';
+						marker.style.left = `${((entry.value - minValue) / range) * 100}%`;
+						marker.title = `${entry.level}: ${entry.value} kg`;
+
+						const label = document.createElement('span');
+						label.className = 'strength-standard-label';
+						label.textContent = entry.level[0].toUpperCase();
+
+						const weightLabel = document.createElement('span');
+						weightLabel.className = 'strength-standard-weight';
+						weightLabel.textContent = `${Math.round(entry.value)} kg`;
+
+						marker.appendChild(label);
+						marker.appendChild(weightLabel);
+						line.appendChild(marker);
+						markers.push(marker);
+					});
+
+					let bestPosition = null;
+					if (best1RMValue > 0) {
+						const bestMarker = document.createElement('div');
+						bestMarker.className = 'strength-standard-best-marker';
+						bestPosition = Math.min(100, Math.max(0, ((best1RMValue - minValue) / range) * 100));
+						bestMarker.style.left = `${bestPosition}%`;
+						bestMarker.title = `Best 1RM: ${Math.round(best1RMValue)} kg`;
+						line.appendChild(bestMarker);
+					}
+
+					if (bestPosition !== null) {
+						markers.forEach(marker => {
+							const pos = parseFloat(marker.style.left);
+							if (Math.abs(pos - bestPosition) < 6) {
+								marker.classList.add('strength-standard-hide-text');
+							}
+						});
+					}
+
+					wrapper.appendChild(graph);
+				}
+
+				renderStrengthStandards();
+
 
 				statsList.appendChild(createStatItem('Total Volume', `${Math.round(totalVolume)} kg`));
 				statsList.appendChild(createStatItem('Total Sets', totalSets));
