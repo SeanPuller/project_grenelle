@@ -1,4 +1,4 @@
-const APP_VERSION = '0.79';
+const APP_VERSION = '0.80';
 document.addEventListener('DOMContentLoaded', () => {
 	const mainContent = document.getElementById('main-content');
 	const navLinks = document.querySelectorAll('.nav-link');
@@ -2115,10 +2115,10 @@ document.addEventListener('DOMContentLoaded', () => {
 					return div;
 				};
 
-				recordsList.appendChild(createRecordItem('Heaviest Weight', heaviestWeight > 0 ? `${heaviestWeight} kg` : '-', heaviestWeightLog));
-				recordsList.appendChild(createRecordItem('Best 1RM', best1RM > 0 ? `${Math.round(best1RM)} kg` : '-', best1RMLog));
-				recordsList.appendChild(createRecordItem('Best Set Volume', bestSetVolume > 0 ? `${Math.round(bestSetVolume)} kg` : '-', bestSetVolumeLog));
-				recordsList.appendChild(createRecordItem('Best Session Volume', bestSessionVolume > 0 ? `${Math.round(bestSessionVolume)} kg` : '-', null, bestSessionVolumeDate));
+				recordsList.appendChild(createRecordItem('heaviest weight', heaviestWeight > 0 ? `${heaviestWeight} kg` : '-', heaviestWeightLog));
+				recordsList.appendChild(createRecordItem('best 1rm', best1RM > 0 ? `${Math.round(best1RM)} kg` : '-', best1RMLog));
+				recordsList.appendChild(createRecordItem('best set volume', bestSetVolume > 0 ? `${Math.round(bestSetVolume)} kg` : '-', bestSetVolumeLog));
+				recordsList.appendChild(createRecordItem('best session volume', bestSessionVolume > 0 ? `${Math.round(bestSessionVolume)} kg` : '-', null, bestSessionVolumeDate));
 
 				const renderStrengthStandards = () => {
 					const standards = exObj.strengthStandards || {};
@@ -2158,7 +2158,7 @@ document.addEventListener('DOMContentLoaded', () => {
 					bestRow.style.justifyContent = 'space-between';
 					bestRow.style.alignItems = 'center';
 					bestRow.innerHTML = `
-						<span style="font-weight:600">Best 1RM</span>
+						<span style="font-weight:600">best 1rm</span>
 						<span style="font-weight:600">${best1RM > 0 ? `${Math.round(best1RM)} kg` : '-'}</span>
 					`;
 					body.appendChild(bestRow);
@@ -2173,8 +2173,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 						const label = document.createElement('span');
 						label.textContent = level;
-						label.style.textTransform = 'capitalize';
-
+						
 						const input = document.createElement('input');
 						input.type = 'number';
 						input.className = 'val-input';
@@ -2231,7 +2230,7 @@ document.addEventListener('DOMContentLoaded', () => {
 					if (entries.length === 0) {
 						const placeholder = document.createElement('div');
 						placeholder.className = 'strength-standard-placeholder';
-						placeholder.textContent = 'Enter strength standards to display the 1D graph.';
+						placeholder.textContent = 'enter strength standards to display the 1d graph.';
 						wrapper.appendChild(placeholder);
 						return;
 					}
@@ -2249,7 +2248,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 						const label = document.createElement('span');
 						label.className = 'strength-standard-label';
-						label.textContent = entry.level[0].toUpperCase();
+						label.textContent = entry.level;
 
 						const weightLabel = document.createElement('span');
 						weightLabel.className = 'strength-standard-weight';
@@ -2267,7 +2266,7 @@ document.addEventListener('DOMContentLoaded', () => {
 						bestMarker.className = 'strength-standard-best-marker';
 						bestPosition = Math.min(100, Math.max(0, ((best1RMValue - minValue) / range) * 100));
 						bestMarker.style.left = `${bestPosition}%`;
-						bestMarker.title = `Best 1RM: ${Math.round(best1RMValue)} kg`;
+						bestMarker.title = `best 1rm: ${Math.round(best1RMValue)} kg`;
 						line.appendChild(bestMarker);
 					}
 
@@ -2286,9 +2285,9 @@ document.addEventListener('DOMContentLoaded', () => {
 				renderStrengthStandards();
 
 
-				statsList.appendChild(createStatItem('Total Volume', `${Math.round(totalVolume)} kg`));
-				statsList.appendChild(createStatItem('Total Sets', totalSets));
-				statsList.appendChild(createStatItem('Total Sessions', Object.keys(sessionVolumes).length));
+				statsList.appendChild(createStatItem('total volume', `${Math.round(totalVolume)} kg`));
+				statsList.appendChild(createStatItem('total sets', totalSets));
+				statsList.appendChild(createStatItem('total sessions', Object.keys(sessionVolumes).length));
 
 				// Additional metrics
 				let totalWeightSum = 0;
@@ -2320,13 +2319,13 @@ document.addEventListener('DOMContentLoaded', () => {
 				}
 
 				if (setsWithWeights > 0) {
-					statsList.appendChild(createStatItem('Average Weight', `${(totalWeightSum / setsWithWeights).toFixed(1)} kg`));
+					statsList.appendChild(createStatItem('average weight', `${(totalWeightSum / setsWithWeights).toFixed(1)} kg`));
 				}
 				if (setsWithReps > 0) {
-					statsList.appendChild(createStatItem('Average Reps', (totalRepsSum / setsWithReps).toFixed(1)));
+					statsList.appendChild(createStatItem('average reps', (totalRepsSum / setsWithReps).toFixed(1)));
 				}
 				if (lastDate) {
-					statsList.appendChild(createStatItem('Last Workout', lastDate));
+					statsList.appendChild(createStatItem('last workout', lastDate));
 				}
 
 				// 1RM Table Section
@@ -2376,13 +2375,10 @@ document.addEventListener('DOMContentLoaded', () => {
 							const cellRM = document.createElement('td');
 							cellRM.style.padding = '8px 0';
 							cellRM.style.color = 'var(--text-light)';
-							cellRM.textContent = `${i}RM`;
+						cellRM.textContent = `${i}rm`;
 
-							const cellWeight = document.createElement('td');
-							cellWeight.style.padding = '8px 0';
-							cellWeight.style.textAlign = 'right';
-							cellWeight.style.fontWeight = '600';
-							const w = calculateWeightForReps(baseWeight, i);
+						const cellWeight = document.createElement('td');
+						cellWeight.style.padding = '8px 0';
 							cellWeight.textContent = `${Math.round(w)} kg`;
 
 							row.appendChild(cellRM);
