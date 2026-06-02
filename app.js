@@ -1,4 +1,4 @@
-const APP_VERSION = '0.77';
+const APP_VERSION = '0.78';
 document.addEventListener('DOMContentLoaded', () => {
 	const mainContent = document.getElementById('main-content');
 	const navLinks = document.querySelectorAll('.nav-link');
@@ -84,7 +84,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 	const DEFAULT_DATA = {
 		version: 1,
-		settings: { debugDate: '', showHomeLogs: true, showRoutineNoteIcons: true, searchType: 'contains', oneRMFormula: 'epley', customTypes: [], hueRotation: 0, colors: { ...DEFAULT_COLORS } },
+		settings: { debugDate: '', showHomeLogs: true, showRoutineNoteIcons: true, searchType: 'contains', oneRMFormula: 'epley', timerAlertSound: 'single', timerAlertVolume: 80, customTypes: [], hueRotation: 0, colors: { ...DEFAULT_COLORS } },
 		home: {
 			history: {}
 		},
@@ -106,6 +106,8 @@ document.addEventListener('DOMContentLoaded', () => {
 					showRoutineNoteIcons: true,
 					searchType: 'contains',
 					oneRMFormula: 'epley',
+					timerAlertSound: 'single',
+					timerAlertVolume: 80,
 					customTypes: [],
 					hueRotation: 0,
 					colors: { ...DEFAULT_COLORS },
@@ -3001,6 +3003,58 @@ document.addEventListener('DOMContentLoaded', () => {
 				});
 			}
 
+			const timerAlertSoundBtn = content.querySelector('#btn-select-timer-alert-sound');
+			const timerAlertSoundLabel = content.querySelector('#label-timer-alert-sound');
+			if (timerAlertSoundBtn && timerAlertSoundLabel) {
+				const currentSound = data.settings?.timerAlertSound || 'single';
+				const soundLabels = {
+					single: 'Single beep',
+					double: 'Double beep',
+					low: 'Low tone',
+					high: 'High tone'
+				};
+				timerAlertSoundLabel.textContent = soundLabels[currentSound] || 'Single beep';
+
+				timerAlertSoundBtn.addEventListener('click', () => {
+					const options = [
+						{ label: 'Single beep', value: 'single' },
+						{ label: 'Double beep', value: 'double' },
+						{ label: 'Low tone', value: 'low' },
+						{ label: 'High tone', value: 'high' }
+					];
+					openSelectionDialog('Select Timer Alert Sound', options, (selection) => {
+						const sel = Array.isArray(selection) ? selection[0] : selection;
+						if (!sel) return;
+						if (!data.settings) data.settings = {};
+						data.settings.timerAlertSound = sel;
+						saveData();
+						renderView('settings');
+					}, 'add new', false);
+				});
+			}
+
+			const timerAlertVolumeSlider = content.querySelector('#timer-alert-volume-slider');
+			const timerAlertVolumeLabel = content.querySelector('#label-timer-alert-volume');
+			if (timerAlertVolumeSlider && timerAlertVolumeLabel) {
+				const currentVolume = data.settings?.timerAlertVolume ?? 80;
+				timerAlertVolumeSlider.value = currentVolume;
+				timerAlertVolumeLabel.textContent = `${currentVolume}%`;
+				timerAlertVolumeSlider.addEventListener('input', (e) => {
+					const value = parseInt(e.target.value, 10);
+					if (!data.settings) data.settings = {};
+					data.settings.timerAlertVolume = isNaN(value) ? 80 : value;
+					timerAlertVolumeLabel.textContent = `${data.settings.timerAlertVolume}%`;
+					saveData();
+				});
+			}
+
+			const timerAlertPreviewBtn = content.querySelector('#btn-play-timer-alert-preview');
+			if (timerAlertPreviewBtn) {
+				timerAlertPreviewBtn.addEventListener('click', () => {
+					playTimerBeep();
+				});
+			}
+
 			const formulaBtn = content.querySelector('#btn-select-1rm-formula');
 			const formulaLabel = content.querySelector('#label-1rm-formula');
 			if (formulaBtn && formulaLabel) {
@@ -3507,15 +3561,31 @@ document.addEventListener('DOMContentLoaded', () => {
 			if (timerAudioContext.state === 'suspended') {
 				void timerAudioContext.resume();
 			}
-			const oscillator = timerAudioContext.createOscillator();
-			const gain = timerAudioContext.createGain();
-			oscillator.frequency.value = 880;
-			gain.gain.setValueAtTime(0.12, timerAudioContext.currentTime);
-			gain.gain.exponentialRampToValueAtTime(0.001, timerAudioContext.currentTime + 0.15);
-			oscillator.connect(gain);
-			gain.connect(timerAudioContext.destination);
-			oscillator.start();
-			oscillator.stop(timerAudioContext.currentTime + 0.15);
+			const volume = Math.max(0, Math.min(1, (data.settings?.timerAlertVolume ?? 80) / 100));
+			const soundType = data.settings?.timerAlertSound || 'single';
+			const playBeep = (frequency, duration, offset = 0) => {
+				const oscillator = timerAudioContext.createOscillator();
+				const gain = timerAudioContext.createGain();
+				oscillator.frequency.value = frequency;
+				const gainValue = Math.max(0.01, volume * 0.45);
+				gain.gain.setValueAtTime(gainValue, timerAudioContext.currentTime + offset);
+				gain.gain.exponentialRampToValueAtTime(0.001, timerAudioContext.currentTime + offset + duration);
+				oscillator.connect(gain);
+				gain.connect(timerAudioContext.destination);
+				oscillator.start(timerAudioContext.currentTime + offset);
+				oscillator.stop(timerAudioContext.currentTime + offset + duration + 0.02);
+			};
+
+			if (soundType === 'double') {
+				playBeep(880, 0.12, 0);
+				playBeep(880, 0.12, 0.2);
+			} else if (soundType === 'low') {
+				playBeep(440, 0.2, 0);
+			} else if (soundType === 'high') {
+				playBeep(1320, 0.12, 0);
+			} else {
+				playBeep(880, 0.15, 0);
+			}
 		} catch (e) {
 			console.warn('Timer beep failed', e);
 		}

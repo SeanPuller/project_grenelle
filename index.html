@@ -197,12 +197,24 @@
 					<span>search type</span>
 					<span id="label-search-type" style="color: var(--text-light); font-size: 14px;"></span>
 				</div>
+				<div class="settings-subheading">timer</div>
 				<div class="list-item" style="justify-content: space-between; cursor: pointer;"
-					id="btn-select-1rm-formula">
-					<span>1rm formula</span>
-					<span id="label-1rm-formula" style="color: var(--text-light); font-size: 14px;"></span>
+					id="btn-select-timer-alert-sound">
+					<span>alert sound</span>
+					<span id="label-timer-alert-sound" style="color: var(--text-light); font-size: 14px;"></span>
 				</div>
-
+				<div class="list-item" style="flex-direction: column; align-items: flex-start; gap: 8px; cursor: default; padding: 12px 0;">
+					<div style="display: flex; justify-content: space-between; width: 100%;">
+						<span>alert volume</span>
+						<span id="label-timer-alert-volume" style="color: var(--text-light); font-size: 12px;">80%</span>
+					</div>
+					<input type="range" id="timer-alert-volume-slider" min="0" max="100" value="80"
+						style="width: 100%; cursor: pointer;">
+				</div>
+				<div class="list-item" style="justify-content: center; cursor: pointer;"
+					id="btn-play-timer-alert-preview">
+					<span style="font-weight: 500;">play alert</span>
+				</div>
 				<div class="settings-subheading">appearance</div>
 				<div class="list-item" style="justify-content: space-between; cursor: pointer;" id="btn-select-preset">
 					<span>choose preset</span>
