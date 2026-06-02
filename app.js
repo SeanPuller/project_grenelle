@@ -1,4 +1,4 @@
-const APP_VERSION = '0.82';
+const APP_VERSION = '0.83';
 document.addEventListener('DOMContentLoaded', () => {
 	const mainContent = document.getElementById('main-content');
 	const navLinks = document.querySelectorAll('.nav-link');
@@ -360,6 +360,77 @@ document.addEventListener('DOMContentLoaded', () => {
 				return oneRM / (1 + r / 30);
 		}
 	}
+
+// Global renderer for strength-standard 1D graphs used across views
+function renderStandardGraphGlobal(wrapper, best1RMValue, levels, standards) {
+	wrapper.innerHTML = '';
+
+	const entries = levels
+		.map(level => ({ level, value: parseFloat(standards[level]) }))
+		.filter(entry => !isNaN(entry.value))
+		.sort((a, b) => a.value - b.value);
+
+	const graph = document.createElement('div');
+	graph.className = 'strength-standard-graph';
+
+	const line = document.createElement('div');
+	line.className = 'strength-standard-line';
+	graph.appendChild(line);
+
+	if (entries.length === 0) {
+		const placeholder = document.createElement('div');
+		placeholder.className = 'strength-standard-placeholder';
+		placeholder.textContent = 'enter strength standards to display the 1d graph.';
+		wrapper.appendChild(placeholder);
+		return;
+	}
+
+	const minValue = entries[0].value;
+	const maxValue = entries[entries.length - 1].value;
+	const range = Math.max(1, maxValue - minValue);
+
+	const markers = [];
+	entries.forEach(entry => {
+		const marker = document.createElement('div');
+		marker.className = 'strength-standard-marker';
+		marker.style.left = `${((entry.value - minValue) / range) * 100}%`;
+		marker.title = `${entry.level}: ${entry.value} kg`;
+
+		const label = document.createElement('span');
+		label.className = 'strength-standard-label';
+		label.textContent = entry.level;
+
+		const weightLabel = document.createElement('span');
+		weightLabel.className = 'strength-standard-weight';
+		weightLabel.textContent = `${Math.round(entry.value)} kg`;
+
+		marker.appendChild(label);
+		marker.appendChild(weightLabel);
+		line.appendChild(marker);
+		markers.push(marker);
+	});
+
+	let bestPosition = null;
+	if (best1RMValue > 0) {
+		const bestMarker = document.createElement('div');
+		bestMarker.className = 'strength-standard-best-marker';
+		bestPosition = Math.min(100, Math.max(0, ((best1RMValue - minValue) / range) * 100));
+		bestMarker.style.left = `${bestPosition}%`;
+		bestMarker.title = `best 1rm: ${Math.round(best1RMValue)} kg`;
+		line.appendChild(bestMarker);
+	}
+
+	if (bestPosition !== null) {
+		markers.forEach(marker => {
+			const pos = parseFloat(marker.style.left);
+			if (Math.abs(pos - bestPosition) < 6) {
+				marker.classList.add('strength-standard-hide-text');
+			}
+		});
+	}
+
+	wrapper.appendChild(graph);
+}
 
 	function saveData() {
 		localStorage.setItem('grenelle_fitness_data', JSON.stringify(data, null, 2));
@@ -3624,18 +3695,78 @@ document.addEventListener('DOMContentLoaded', () => {
 				if (!ex || !ex.strengthStandards) return;
 				const entries = levels.map(l => ex.strengthStandards[l]).filter(v => v !== undefined && v !== null && !isNaN(v));
 				if (entries.length === 0) return;
-				const row = document.createElement('div');
-				row.className = 'list-item';
-				row.style.display = 'flex';
-				row.style.justifyContent = 'space-between';
-				row.style.alignItems = 'center';
-				row.innerHTML = `<span>${ex.name}</span><span style="font-weight:600">${entries.map(v => Math.round(v)).join(' ')}</span>`;
-				container.appendChild(row);
+				// compute best 1RM for this exercise from its logs
+				let best1RM = 0;
+				if (Array.isArray(ex.logs)) {
+					ex.logs.forEach(log => {
+						const w = parseFloat(log.data?.kg);
+						const r = parseInt(log.data?.reps, 10);
+						if (!isNaN(w) && !isNaN(r) && r > 0) {
+							const oneRM = calculateOneRM(w, r);
+							if (oneRM > best1RM) best1RM = oneRM;
+						}
+					});
+				}
+				const wrapperRow = document.createElement('div');
+				wrapperRow.className = 'strength-standards-body';
+				wrapperRow.style.marginBottom = '12px';
+				const titleRow = document.createElement('div');
+				titleRow.className = 'list-item';
+				titleRow.style.display = 'flex';
+				titleRow.style.justifyContent = 'space-between';
+				titleRow.style.alignItems = 'center';
+				titleRow.innerHTML = `<span style="font-weight:600">${ex.name}</span><span style="font-weight:600">${best1RM > 0 ? Math.round(best1RM) + ' kg' : ''}</span>`;
+				wrapperRow.appendChild(titleRow);
+				const graphWrapper = document.createElement('div');
+				graphWrapper.className = 'strength-standard-graph-wrapper';
+				wrapperRow.appendChild(graphWrapper);
+				container.appendChild(wrapperRow);
+				// render the standard graph using existing renderer
+				renderStandardGraphGlobal(graphWrapper, best1RM, levels, ex.strengthStandards || {});
 			});
 		}
 
 		// ensure standards render initially
 		renderDataStrengthStandards();
+
+		// Make data page subheadings collapsible
+		const dataHeadings = content.querySelectorAll('.settings-subheading');
+		dataHeadings.forEach(h => {
+			h.style.cursor = 'pointer';
+			// ensure heading uses flex layout so title and icon sit at ends
+			h.style.display = 'flex';
+			h.style.alignItems = 'center';
+			h.style.justifyContent = 'space-between';
+
+			// wrap existing text content into a title span so flex works consistently
+			const existingText = (h.textContent || '').trim();
+			h.innerHTML = '';
+			const titleSpan = document.createElement('span');
+			titleSpan.className = 'settings-subheading-title';
+			titleSpan.textContent = existingText;
+			h.appendChild(titleSpan);
+
+			let icon = h.querySelector('.settings-collapse-icon');
+			if (!icon) {
+				icon = document.createElement('span');
+				icon.className = 'material-icons-outlined settings-collapse-icon';
+				icon.textContent = 'expand_more';
+				h.appendChild(icon);
+			}
+
+			// initial expanded state
+			let expanded = true;
+			h.addEventListener('click', () => {
+				expanded = !expanded;
+				icon.textContent = expanded ? 'expand_more' : 'chevron_right';
+				// toggle all siblings until next subheading
+				let el = h.nextElementSibling;
+				while (el && !el.classList.contains('settings-subheading')) {
+					el.style.display = expanded ? '' : 'none';
+					el = el.nextElementSibling;
+				}
+			});
+		});
 	}
 
 	function generateLogsText(start, end) {
