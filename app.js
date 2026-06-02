@@ -1,4 +1,4 @@
-const APP_VERSION = '0.80';
+const APP_VERSION = '0.81';
 document.addEventListener('DOMContentLoaded', () => {
 	const mainContent = document.getElementById('main-content');
 	const navLinks = document.querySelectorAll('.nav-link');
@@ -2358,36 +2358,51 @@ document.addEventListener('DOMContentLoaded', () => {
 
 					const tableContainer = document.createElement('div');
 					tableContainer.style.marginTop = '8px';
-					oneRMSection.appendChild(tableContainer);
+				tableContainer.style.maxHeight = '300px';
+				tableContainer.style.overflowY = 'auto';
+				oneRMSection.appendChild(tableContainer);
 
-					const renderTable = (baseWeight) => {
-						tableContainer.innerHTML = '';
-						const table = document.createElement('table');
-						table.style.width = '100%';
-						table.style.borderCollapse = 'collapse';
-						table.style.fontSize = '14px';
+				const renderTable = (baseWeight) => {
+					tableContainer.innerHTML = '';
+					const table = document.createElement('table');
+					table.style.width = '100%';
+					table.style.borderCollapse = 'collapse';
+					table.style.fontSize = '14px';
 
-						const tbody = document.createElement('tbody');
-						for (let i = 1; i <= 15; i++) {
-							const row = document.createElement('tr');
-							row.style.borderBottom = '1px solid var(--border-color)';
+					const tbody = document.createElement('tbody');
+					for (let i = 1; i <= 25; i++) {
+						const row = document.createElement('tr');
+						row.style.borderBottom = '1px solid var(--border-color)';
 
-							const cellRM = document.createElement('td');
-							cellRM.style.padding = '8px 0';
-							cellRM.style.color = 'var(--text-light)';
-						cellRM.textContent = `${i}rm`;
+						const cellRM = document.createElement('td');
+						cellRM.style.padding = '8px 0';
+						cellRM.style.width = '33.33%';
+						cellRM.style.textAlign = 'left';
+						cellRM.style.color = 'var(--text-light)';
+						cellRM.textContent = `${i}`;
 
+						const weight = calculateWeightForReps(baseWeight, i);
 						const cellWeight = document.createElement('td');
 						cellWeight.style.padding = '8px 0';
-							cellWeight.textContent = `${Math.round(w)} kg`;
-
-							row.appendChild(cellRM);
-							row.appendChild(cellWeight);
-							tbody.appendChild(row);
-						}
-						table.appendChild(tbody);
-						tableContainer.appendChild(table);
-					};
+						cellWeight.style.width = '33.33%';
+						cellWeight.style.textAlign = 'center';
+						cellWeight.textContent = `${Math.round(weight)} kg`;
+						
+						const percentage = (weight / baseWeight) * 100;
+						const cellPercentage = document.createElement('td');
+						cellPercentage.style.padding = '8px 0';
+						cellPercentage.style.width = '33.34%';
+						cellPercentage.style.textAlign = 'right';
+						cellPercentage.textContent = `${Math.round(percentage)}%`;
+						
+						row.appendChild(cellRM);
+						row.appendChild(cellWeight);
+						row.appendChild(cellPercentage);
+						tbody.appendChild(row);
+					}
+					table.appendChild(tbody);
+					tableContainer.appendChild(table);
+				};
 
 					const current1RM = calculateOneRM(heaviestWeight, heaviestWeightReps);
 					renderTable(current1RM);
