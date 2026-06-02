@@ -944,13 +944,13 @@ body {
 	text-decoration: underline;
 }
 
-/* Clipboard Icon & Data Share Page Styles */
-.clipboard-icon {
+/* Data Icon & Data Share Page Styles */
+.data-icon {
 	display: flex;
 	align-items: center;
 }
 
-.clipboard-icon .material-icons-outlined {
+.data-icon .material-icons-outlined {
 	font-size: 20px;
 	cursor: pointer;
 	display: block;

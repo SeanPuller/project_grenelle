@@ -1,4 +1,4 @@
-const APP_VERSION = '0.81';
+const APP_VERSION = '0.82';
 document.addEventListener('DOMContentLoaded', () => {
 	const mainContent = document.getElementById('main-content');
 	const navLinks = document.querySelectorAll('.nav-link');
@@ -381,7 +381,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	const backBtn = appHeader.querySelector('.back-btn');
 	const headerTitle = appHeader.querySelector('.header-title');
 	const settingsIcon = appHeader.querySelector('.settings-icon');
-	const clipboardIcon = appHeader.querySelector('.clipboard-icon');
+	const dataIcon = appHeader.querySelector('.data-icon');
 	const headerEditIcon = appHeader.querySelector('.header-edit-icon');
 	const headerAddHomeIcon = appHeader.querySelector('.header-add-home-icon');
 
@@ -391,8 +391,8 @@ document.addEventListener('DOMContentLoaded', () => {
 		});
 	}
 
-	if (clipboardIcon) {
-		clipboardIcon.addEventListener('click', () => {
+	if (dataIcon) {
+		dataIcon.addEventListener('click', () => {
 			renderView('data-page');
 		});
 	}
@@ -1112,7 +1112,7 @@ document.addEventListener('DOMContentLoaded', () => {
 			backBtn.style.display = 'none';
 			headerTitle.style.display = 'none';
 			settingsIcon.style.display = 'flex';
-			if (clipboardIcon) clipboardIcon.style.display = 'flex';
+			if (dataIcon) dataIcon.style.display = 'flex';
 			headerEditIcon.style.display = 'none';
 			headerAddHomeIcon.style.display = 'none';
 		} else {
@@ -1121,7 +1121,7 @@ document.addEventListener('DOMContentLoaded', () => {
 			backBtn.style.display = 'block';
 			headerTitle.style.display = 'block';
 			settingsIcon.style.display = 'none';
-			if (clipboardIcon) clipboardIcon.style.display = 'none';
+			if (dataIcon) dataIcon.style.display = 'none';
 
 			if (viewName === 'settings') {
 				headerTitle.textContent = 'settings';
@@ -1136,7 +1136,7 @@ document.addEventListener('DOMContentLoaded', () => {
 				headerEditIcon.style.display = 'none';
 				headerAddHomeIcon.style.display = 'none';
 			} else if (viewName === 'data-page') {
-				headerTitle.textContent = 'share data';
+				headerTitle.textContent = 'app data';
 				headerEditIcon.style.display = 'none';
 				headerAddHomeIcon.style.display = 'none';
 			}
@@ -3613,6 +3613,29 @@ document.addEventListener('DOMContentLoaded', () => {
 			todayBtn.classList.add('active');
 		}
 		updateLabels();
+
+		// Render the strength standards list for data page
+		function renderDataStrengthStandards() {
+			const container = content.querySelector('#data-strength-standards');
+			if (!container) return;
+			container.innerHTML = '';
+			const levels = ['beginner', 'novice', 'intermediate', 'advanced', 'elite'];
+			data.exercises.forEach(ex => {
+				if (!ex || !ex.strengthStandards) return;
+				const entries = levels.map(l => ex.strengthStandards[l]).filter(v => v !== undefined && v !== null && !isNaN(v));
+				if (entries.length === 0) return;
+				const row = document.createElement('div');
+				row.className = 'list-item';
+				row.style.display = 'flex';
+				row.style.justifyContent = 'space-between';
+				row.style.alignItems = 'center';
+				row.innerHTML = `<span>${ex.name}</span><span style="font-weight:600">${entries.map(v => Math.round(v)).join(' ')}</span>`;
+				container.appendChild(row);
+			});
+		}
+
+		// ensure standards render initially
+		renderDataStrengthStandards();
 	}
 
 	function generateLogsText(start, end) {
