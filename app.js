@@ -1,4 +1,4 @@
-const APP_VERSION = '0.84';
+const APP_VERSION = '0.85';
 document.addEventListener('DOMContentLoaded', () => {
 	const mainContent = document.getElementById('main-content');
 	const navLinks = document.querySelectorAll('.nav-link');
@@ -3906,6 +3906,15 @@ function renderStandardGraphGlobal(wrapper, best1RMValue, levels, standards) {
 	let timerAudioContext = null;
 
 	function playTimerBeep() {
+		const beepCount = data.settings?.timerBeepCount ?? 2;
+		const volume = data.settings?.timerAlertVolume ?? 80;
+		const soundType = data.settings?.timerAlertSound || 'single';
+
+		if (window.AndroidInterface && window.AndroidInterface.playBeep) {
+			window.AndroidInterface.playBeep(soundType, beepCount, volume);
+			return;
+		}
+
 		try {
 			if (!window.AudioContext && !window.webkitAudioContext) return;
 			if (!timerAudioContext) {
@@ -3914,13 +3923,12 @@ function renderStandardGraphGlobal(wrapper, best1RMValue, levels, standards) {
 			if (timerAudioContext.state === 'suspended') {
 				void timerAudioContext.resume();
 			}
-			const volume = Math.max(0, Math.min(1, (data.settings?.timerAlertVolume ?? 80) / 100));
-			const soundType = data.settings?.timerAlertSound || 'single';
+			const audioVolume = Math.max(0, Math.min(1, volume / 100));
 			const playBeep = (frequency, duration, offset = 0) => {
 				const oscillator = timerAudioContext.createOscillator();
 				const gain = timerAudioContext.createGain();
 				oscillator.frequency.value = frequency;
-				const gainValue = Math.max(0.01, volume * 0.45);
+				const gainValue = Math.max(0.01, audioVolume * 0.45);
 				gain.gain.setValueAtTime(gainValue, timerAudioContext.currentTime + offset);
 				gain.gain.exponentialRampToValueAtTime(0.001, timerAudioContext.currentTime + offset + duration);
 				oscillator.connect(gain);
@@ -3929,7 +3937,6 @@ function renderStandardGraphGlobal(wrapper, best1RMValue, levels, standards) {
 				oscillator.stop(timerAudioContext.currentTime + offset + duration + 0.02);
 			};
 
-			const beepCount = data.settings?.timerBeepCount ?? 2;
 			const frequency = soundType === 'low' ? 440 : (soundType === 'high' ? 1320 : 880);
 			const duration = soundType === 'low' ? 0.2 : (soundType === 'high' ? 0.12 : 0.15);
 			const spacing = duration + 0.08;
@@ -3952,6 +3959,9 @@ function renderStandardGraphGlobal(wrapper, best1RMValue, levels, standards) {
 			timerStartTime = null;
 			timerEndTime = null;
 			timerMode = null;
+		}
+		if (window.AndroidInterface && window.AndroidInterface.stopTimer) {
+			window.AndroidInterface.stopTimer();
 		}
 		updateTimerDisplay();
 		floatingTimer.style.opacity = '1';
@@ -3979,6 +3989,9 @@ function renderStandardGraphGlobal(wrapper, best1RMValue, levels, standards) {
 		timerMode = 'up';
 		timerStartTime = Date.now();
 		timerInterval = setInterval(tickTimer, 1000);
+		if (window.AndroidInterface && window.AndroidInterface.startTimer) {
+			window.AndroidInterface.startTimer();
+		}
 		floatingTimer.style.opacity = '0.9';
 		tickTimer();
 	}
@@ -3988,6 +4001,9 @@ function renderStandardGraphGlobal(wrapper, best1RMValue, levels, standards) {
 		timerMode = 'down';
 		timerEndTime = Date.now() + seconds * 1000;
 		timerInterval = setInterval(tickTimer, 1000);
+		if (window.AndroidInterface && window.AndroidInterface.startTimer) {
+			window.AndroidInterface.startTimer();
+		}
 		floatingTimer.style.opacity = '0.9';
 		tickTimer();
 	}
