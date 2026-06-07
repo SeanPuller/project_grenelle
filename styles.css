@@ -234,6 +234,8 @@ body {
 }
 
 .list-item {
+	display: flex;
+	align-items: center;
 	padding: 10px 0;
 	border-bottom: 1px solid var(--border-color);
 	cursor: pointer;
@@ -249,12 +251,12 @@ body {
 
 .programs-view .list-item,
 .routines-view .list-item {
-	text-align: right;
+	justify-content: flex-end;
 }
 
 .exercises-view .list-item,
 .home-view .list-item {
-	text-align: left;
+	justify-content: flex-start;
 }
 
 .main-add-row {

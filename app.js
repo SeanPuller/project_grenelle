@@ -1,4 +1,4 @@
-const APP_VERSION = '0.86';
+const APP_VERSION = '0.87';
 document.addEventListener('DOMContentLoaded', () => {
 	const mainContent = document.getElementById('main-content');
 	const navLinks = document.querySelectorAll('.nav-link');
@@ -597,6 +597,13 @@ function renderStandardGraphGlobal(wrapper, best1RMValue, levels, standards) {
 	}
 
 	sdCancel.addEventListener('click', () => sdDialog.close());
+
+	// Close dialog when clicking outside (on the backdrop), unless in multi-select mode
+	sdDialog.addEventListener('click', (e) => {
+		if (e.target === sdDialog && !isMultiSelect) {
+			sdDialog.close();
+		}
+	});
 
 	sdAddNewBtn.addEventListener('click', () => {
 		sdList.style.display = 'none';
@@ -2159,14 +2166,15 @@ function renderStandardGraphGlobal(wrapper, best1RMValue, levels, standards) {
 					div.className = 'list-item';
 					div.style.display = 'flex';
 					div.style.flexDirection = 'column';
+					div.style.alignItems = 'stretch';
 					div.style.cursor = 'default';
 
 					let subText = '';
 					if (log) {
 						const details = Object.entries(log.data).map(([k, v]) => `${v}${k}`).join(' ');
-						subText = `<div style="font-size:11px; color:var(--text-light); margin-top:2px;">${details} on ${log.date}</div>`;
+						subText = `<div style="font-size:11px; color:var(--text-light); text-align:left; margin-top:2px;">${details} on ${log.date}</div>`;
 					} else if (date) {
-						subText = `<div style="font-size:11px; color:var(--text-light); margin-top:2px;">on ${date}</div>`;
+						subText = `<div style="font-size:11px; color:var(--text-light); text-align:left; margin-top:2px;">on ${date}</div>`;
 					}
 
 					div.innerHTML = `
@@ -3213,7 +3221,8 @@ function renderStandardGraphGlobal(wrapper, best1RMValue, levels, standards) {
 					homeLogsToggle.textContent = isOn() ? 'check_box' : 'check_box_outline_blank';
 				};
 				updateToggle();
-				homeLogsToggle.addEventListener('click', () => {
+				const homeLogsRow = homeLogsToggle.closest('.list-item');
+				(homeLogsRow || homeLogsToggle).addEventListener('click', () => {
 					if (!data.settings) data.settings = {};
 					data.settings.showHomeLogs = !isOn();
 					saveData();
@@ -3228,7 +3237,8 @@ function renderStandardGraphGlobal(wrapper, best1RMValue, levels, standards) {
 					routineNoteIconsToggle.textContent = isOn() ? 'check_box' : 'check_box_outline_blank';
 				};
 				updateToggle();
-				routineNoteIconsToggle.addEventListener('click', () => {
+				const routineIconsRow = routineNoteIconsToggle.closest('.list-item');
+				(routineIconsRow || routineNoteIconsToggle).addEventListener('click', () => {
 					if (!data.settings) data.settings = {};
 					data.settings.showRoutineNoteIcons = !isOn();
 					saveData();
@@ -3300,6 +3310,15 @@ function renderStandardGraphGlobal(wrapper, best1RMValue, levels, standards) {
 					data.settings.timerBeepCount = value;
 					saveData();
 				});
+				const beepCountRow = timerBeepCountInput.closest('.list-item');
+				if (beepCountRow) {
+					beepCountRow.addEventListener('click', (e) => {
+						if (e.target === beepCountRow || e.target.tagName === 'SPAN') {
+							timerBeepCountInput.focus();
+							timerBeepCountInput.select();
+						}
+					});
+				}
 			}
 
 			const timerAlertVolumeSlider = content.querySelector('#timer-alert-volume-slider');
@@ -3392,6 +3411,14 @@ function renderStandardGraphGlobal(wrapper, best1RMValue, levels, standards) {
 					data.settings.debugDate = e.target.value.trim();
 					saveData();
 				});
+				const debugRow = debugInput.closest('.list-item');
+				if (debugRow) {
+					debugRow.addEventListener('click', (e) => {
+						if (e.target === debugRow || e.target.tagName === 'SPAN') {
+							debugInput.focus();
+						}
+					});
+				}
 			}
 
 			const colorPrimary = content.querySelector('#color-primary');
@@ -3403,6 +3430,21 @@ function renderStandardGraphGlobal(wrapper, best1RMValue, levels, standards) {
 			const colorBtnSecondary = content.querySelector('#color-btn-secondary');
 			const colorBtnRemove = content.querySelector('#color-btn-remove');
 			const colorDanger = content.querySelector('#color-danger');
+
+			// Clicking the row opens the color picker
+			[colorPrimary, colorBg, colorTextDark, colorTextLight, colorTextDisabled,
+			 colorBorder, colorBtnSecondary, colorBtnRemove, colorDanger].forEach(input => {
+				if (input) {
+					const row = input.closest('.list-item');
+					if (row) {
+						row.addEventListener('click', (e) => {
+							if (e.target === row || e.target.tagName === 'SPAN') {
+								input.click();
+							}
+						});
+					}
+				}
+			});
 
 			if (colorPrimary && colorBg && colorTextDark) {
 				const currentColors = (data.settings && data.settings.colors) ? data.settings.colors : DEFAULT_COLORS;
@@ -3709,7 +3751,8 @@ function renderStandardGraphGlobal(wrapper, best1RMValue, levels, standards) {
 				customCopyInput.value = data.settings.customCopyText;
 			}
 			updateToggle();
-			customCopyToggle.addEventListener('click', () => {
+			const customCopyRow = customCopyToggle.closest('.list-item');
+			(customCopyRow || customCopyToggle).addEventListener('click', () => {
 				if (!data.settings) data.settings = {};
 				data.settings.enableCustomCopyText = !isOn();
 				saveData();
