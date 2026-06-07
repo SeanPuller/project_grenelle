@@ -333,6 +333,16 @@
 					<button type="button" class="preset-btn" data-preset="this-month">this month</button>
 				</div>
 
+				<div class="list-item" style="justify-content: space-between; cursor: default; border-bottom: 1px solid var(--border-color);">
+					<span>add text</span>
+					<span class="material-icons-outlined" id="toggle-custom-copy-text"
+						style="cursor: pointer; font-size: 22px;"></span>
+				</div>
+				<div id="custom-copy-text-container" style="display: none; margin-bottom: 16px;">
+					<textarea id="custom-copy-text-input"
+						style="width: 100%; min-height: 60px; font-family: inherit; font-size: 13px; resize: vertical; border: 1px solid var(--border-color); padding: 8px; border-radius: 4px; background: var(--bg-color); color: var(--text-dark);">You are a strength coach. Critique this workout data</textarea>
+				</div>
+
 				<div class="preview-container">
 					<div class="preview-controls">
 						<button type="button" class="icon-btn" id="btn-copy-data" title="Copy data" aria-label="Copy data">

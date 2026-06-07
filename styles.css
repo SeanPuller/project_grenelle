@@ -28,6 +28,10 @@ textarea {
 	color: var(--text-dark);
 }
 
+#custom-copy-text-input {
+	text-transform: none !important;
+}
+
 input[type="search"]::-webkit-search-cancel-button {
 	-webkit-appearance: none;
 	appearance: none;

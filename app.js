@@ -1,4 +1,4 @@
-const APP_VERSION = '0.85';
+const APP_VERSION = '0.86';
 document.addEventListener('DOMContentLoaded', () => {
 	const mainContent = document.getElementById('main-content');
 	const navLinks = document.querySelectorAll('.nav-link');
@@ -84,7 +84,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 	const DEFAULT_DATA = {
 		version: 1,
-		settings: { debugDate: '', showHomeLogs: true, showRoutineNoteIcons: true, searchType: 'contains', oneRMFormula: 'epley', timerAlertSound: 'single', timerBeepCount: 2, timerAlertVolume: 80, customTypes: [], hueRotation: 0, colors: { ...DEFAULT_COLORS } },
+		settings: { debugDate: '', showHomeLogs: true, showRoutineNoteIcons: true, searchType: 'contains', oneRMFormula: 'epley', timerAlertSound: 'single', timerBeepCount: 2, timerAlertVolume: 80, customTypes: [], hueRotation: 0, colors: { ...DEFAULT_COLORS }, enableCustomCopyText: false, customCopyText: 'You are a strength coach. Critique this workout data' },
 		home: {
 			history: {}
 		},
@@ -112,6 +112,8 @@ document.addEventListener('DOMContentLoaded', () => {
 					customTypes: [],
 					hueRotation: 0,
 					colors: { ...DEFAULT_COLORS },
+					enableCustomCopyText: false,
+					customCopyText: 'You are a strength coach. Critique this workout data',
 					...(parsed.settings || {})
 				},
 				home: parsed.home || DEFAULT_DATA.home,
@@ -3692,6 +3694,36 @@ function renderStandardGraphGlobal(wrapper, best1RMValue, levels, standards) {
 			});
 		}
 
+		// Custom copy text toggle & input
+		const customCopyToggle = content.querySelector('#toggle-custom-copy-text');
+		const customCopyContainer = content.querySelector('#custom-copy-text-container');
+		const customCopyInput = content.querySelector('#custom-copy-text-input');
+		if (customCopyToggle && customCopyContainer && customCopyInput) {
+			const isOn = () => data.settings?.enableCustomCopyText === true;
+			const updateToggle = () => {
+				customCopyToggle.textContent = isOn() ? 'check_box' : 'check_box_outline_blank';
+				customCopyContainer.style.display = isOn() ? '' : 'none';
+			};
+			// Set current value from settings
+			if (data.settings?.customCopyText) {
+				customCopyInput.value = data.settings.customCopyText;
+			}
+			updateToggle();
+			customCopyToggle.addEventListener('click', () => {
+				if (!data.settings) data.settings = {};
+				data.settings.enableCustomCopyText = !isOn();
+				saveData();
+				updateToggle();
+				updatePreview();
+			});
+			customCopyInput.addEventListener('input', () => {
+				if (!data.settings) data.settings = {};
+				data.settings.customCopyText = customCopyInput.value;
+				saveData();
+				updatePreview();
+			});
+		}
+
 		// Initial display
 		// Start with "today" preset active
 		const todayBtn = content.querySelector('.preset-btn[data-preset="today"]');
@@ -3792,6 +3824,12 @@ function renderStandardGraphGlobal(wrapper, best1RMValue, levels, standards) {
 		const s = startCopy < endCopy ? startCopy : endCopy;
 		const e = startCopy < endCopy ? endCopy : startCopy;
 
+		// Prepend custom text if enabled
+		let prefix = '';
+		if (data.settings?.enableCustomCopyText && data.settings?.customCopyText) {
+			prefix = data.settings.customCopyText.trim() + '\n\n---\n\n';
+		}
+
 		const dateStrings = [];
 		let current = new Date(s);
 		while (current <= e) {
@@ -3874,6 +3912,9 @@ function renderStandardGraphGlobal(wrapper, best1RMValue, levels, standards) {
 			fullText = fullText.slice(0, -6);
 		}
 
+		if (prefix && fullText) {
+			return prefix + fullText.trim();
+		}
 		return fullText.trim();
 	}
 
