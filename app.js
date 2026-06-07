@@ -1,4 +1,4 @@
-const APP_VERSION = '0.83';
+const APP_VERSION = '0.84';
 document.addEventListener('DOMContentLoaded', () => {
 	const mainContent = document.getElementById('main-content');
 	const navLinks = document.querySelectorAll('.nav-link');
@@ -84,7 +84,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 	const DEFAULT_DATA = {
 		version: 1,
-		settings: { debugDate: '', showHomeLogs: true, showRoutineNoteIcons: true, searchType: 'contains', oneRMFormula: 'epley', timerAlertSound: 'single', timerAlertVolume: 80, customTypes: [], hueRotation: 0, colors: { ...DEFAULT_COLORS } },
+		settings: { debugDate: '', showHomeLogs: true, showRoutineNoteIcons: true, searchType: 'contains', oneRMFormula: 'epley', timerAlertSound: 'single', timerBeepCount: 2, timerAlertVolume: 80, customTypes: [], hueRotation: 0, colors: { ...DEFAULT_COLORS } },
 		home: {
 			history: {}
 		},
@@ -107,6 +107,7 @@ document.addEventListener('DOMContentLoaded', () => {
 					searchType: 'contains',
 					oneRMFormula: 'epley',
 					timerAlertSound: 'single',
+					timerBeepCount: 2,
 					timerAlertVolume: 80,
 					customTypes: [],
 					hueRotation: 0,
@@ -3260,19 +3261,17 @@ function renderStandardGraphGlobal(wrapper, best1RMValue, levels, standards) {
 			if (timerAlertSoundBtn && timerAlertSoundLabel) {
 				const currentSound = data.settings?.timerAlertSound || 'single';
 				const soundLabels = {
-					single: 'Single beep',
-					double: 'Double beep',
-					low: 'Low tone',
-					high: 'High tone'
+					single: 'beep',
+					low: 'low tone',
+					high: 'high tone'
 				};
-				timerAlertSoundLabel.textContent = soundLabels[currentSound] || 'Single beep';
+				timerAlertSoundLabel.textContent = soundLabels[currentSound] || 'beep';
 
 				timerAlertSoundBtn.addEventListener('click', () => {
 					const options = [
-						{ label: 'Single beep', value: 'single' },
-						{ label: 'Double beep', value: 'double' },
-						{ label: 'Low tone', value: 'low' },
-						{ label: 'High tone', value: 'high' }
+						{ label: 'beep', value: 'single' },
+						{ label: 'low tone', value: 'low' },
+						{ label: 'high tone', value: 'high' }
 					];
 					openSelectionDialog('Select Timer Alert Sound', options, (selection) => {
 						const sel = Array.isArray(selection) ? selection[0] : selection;
@@ -3282,6 +3281,22 @@ function renderStandardGraphGlobal(wrapper, best1RMValue, levels, standards) {
 						saveData();
 						renderView('settings');
 					}, 'add new', false);
+				});
+			}
+
+			const timerBeepCountInput = content.querySelector('#timer-beep-count-input');
+			if (timerBeepCountInput) {
+				const currentBeepCount = data.settings?.timerBeepCount ?? 2;
+				timerBeepCountInput.value = currentBeepCount;
+				timerBeepCountInput.addEventListener('change', (e) => {
+					let value = parseInt(e.target.value, 10);
+					if (isNaN(value) || value < 1) {
+						value = 2; // fallback/default
+						timerBeepCountInput.value = 2;
+					}
+					if (!data.settings) data.settings = {};
+					data.settings.timerBeepCount = value;
+					saveData();
 				});
 			}
 
@@ -3872,6 +3887,9 @@ function renderStandardGraphGlobal(wrapper, best1RMValue, levels, standards) {
 	const floatingTimer = document.getElementById('floating-timer');
 	let timerInterval = null;
 	let timerSeconds = 0;
+	let timerStartTime = null;
+	let timerEndTime = null;
+	let timerMode = null; // 'up', 'down', or null
 
 	function updateTimerDisplay() {
 		const m = Math.floor(timerSeconds / 60).toString().padStart(2, '0');
@@ -3911,15 +3929,13 @@ function renderStandardGraphGlobal(wrapper, best1RMValue, levels, standards) {
 				oscillator.stop(timerAudioContext.currentTime + offset + duration + 0.02);
 			};
 
-			if (soundType === 'double') {
-				playBeep(880, 0.12, 0);
-				playBeep(880, 0.12, 0.2);
-			} else if (soundType === 'low') {
-				playBeep(440, 0.2, 0);
-			} else if (soundType === 'high') {
-				playBeep(1320, 0.12, 0);
-			} else {
-				playBeep(880, 0.15, 0);
+			const beepCount = data.settings?.timerBeepCount ?? 2;
+			const frequency = soundType === 'low' ? 440 : (soundType === 'high' ? 1320 : 880);
+			const duration = soundType === 'low' ? 0.2 : (soundType === 'high' ? 0.12 : 0.15);
+			const spacing = duration + 0.08;
+
+			for (let i = 0; i < beepCount; i++) {
+				playBeep(frequency, duration, i * spacing);
 			}
 		} catch (e) {
 			console.warn('Timer beep failed', e);
@@ -3933,40 +3949,62 @@ function renderStandardGraphGlobal(wrapper, best1RMValue, levels, standards) {
 		}
 		if (reset) {
 			timerSeconds = 0;
+			timerStartTime = null;
+			timerEndTime = null;
+			timerMode = null;
 		}
 		updateTimerDisplay();
 		floatingTimer.style.opacity = '1';
 	}
 
-	function startCountUp() {
-		timerSeconds = 0;
-		stopTimer(false);
-		timerInterval = setInterval(() => {
-			timerSeconds++;
+	function tickTimer() {
+		if (timerMode === 'up') {
+			const elapsed = Math.floor((Date.now() - timerStartTime) / 1000);
+			timerSeconds = elapsed;
 			updateTimerDisplay();
-		}, 1000);
+		} else if (timerMode === 'down') {
+			const remaining = Math.max(0, Math.ceil((timerEndTime - Date.now()) / 1000));
+			if (remaining <= 0) {
+				stopTimer(true);
+				playTimerBeep();
+			} else {
+				timerSeconds = remaining;
+				updateTimerDisplay();
+			}
+		}
+	}
+
+	function startCountUp() {
+		stopTimer(true);
+		timerMode = 'up';
+		timerStartTime = Date.now();
+		timerInterval = setInterval(tickTimer, 1000);
 		floatingTimer.style.opacity = '0.9';
+		tickTimer();
 	}
 
 	function startCountDown(seconds) {
 		stopTimer(true);
-		timerSeconds = seconds;
-		updateTimerDisplay();
-		timerInterval = setInterval(() => {
-			if (timerSeconds <= 1) {
-				clearInterval(timerInterval);
-				timerInterval = null;
-				timerSeconds = 0;
-				updateTimerDisplay();
-				playTimerBeep();
-				floatingTimer.style.opacity = '1';
-				return;
-			}
-			timerSeconds--;
-			updateTimerDisplay();
-		}, 1000);
+		timerMode = 'down';
+		timerEndTime = Date.now() + seconds * 1000;
+		timerInterval = setInterval(tickTimer, 1000);
 		floatingTimer.style.opacity = '0.9';
+		tickTimer();
 	}
+
+	function syncTimerOnWake() {
+		if (timerMode) {
+			tickTimer();
+		}
+	}
+
+	document.addEventListener('visibilitychange', () => {
+		if (document.visibilityState === 'visible') {
+			syncTimerOnWake();
+		}
+	});
+
+	window.addEventListener('focus', syncTimerOnWake);
 
 	if (floatingTimer) {
 		floatingTimer.style.touchAction = 'none';
