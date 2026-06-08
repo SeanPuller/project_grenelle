@@ -1,4 +1,4 @@
-const APP_VERSION = '0.87';
+const APP_VERSION = '0.88';
 document.addEventListener('DOMContentLoaded', () => {
 	const mainContent = document.getElementById('main-content');
 	const navLinks = document.querySelectorAll('.nav-link');
@@ -3974,6 +3974,7 @@ function renderStandardGraphGlobal(wrapper, best1RMValue, levels, standards) {
 	let timerStartTime = null;
 	let timerEndTime = null;
 	let timerMode = null; // 'up', 'down', or null
+	let timerWakeLock = null;
 
 	function updateTimerDisplay() {
 		const m = Math.floor(timerSeconds / 60).toString().padStart(2, '0');
@@ -3988,6 +3989,69 @@ function renderStandardGraphGlobal(wrapper, best1RMValue, levels, standards) {
 	let timerDragged = false;
 
 	let timerAudioContext = null;
+
+	// --- Wake Lock (keeps screen/CPU awake on Android) ---
+	async function acquireWakeLock() {
+		try {
+			if (navigator.wakeLock) {
+				timerWakeLock = await navigator.wakeLock.request('screen');
+				timerWakeLock.addEventListener('release', () => {
+					// Auto-reacquire if timer is still active
+					if (timerMode) {
+						acquireWakeLock().catch(() => {});
+					}
+				});
+			}
+		} catch (e) {
+			// Wake lock not supported or denied — fall back to keepalive below
+		}
+	}
+
+	function releaseWakeLock() {
+		if (timerWakeLock) {
+			try { timerWakeLock.release(); } catch (e) {}
+			timerWakeLock = null;
+		}
+	}
+
+	// --- AudioContext keepalive (prevents browser from suspending the tab) ---
+	function startKeepAliveAudio() {
+		stopKeepAliveAudio();
+		try {
+			if (!window.AudioContext && !window.webkitAudioContext) return;
+			if (!timerAudioContext) {
+				timerAudioContext = new (window.AudioContext || window.webkitAudioContext)();
+			}
+			if (timerAudioContext.state === 'suspended') {
+				void timerAudioContext.resume();
+			}
+			// Play a very quiet, inaudible tone to keep the AudioContext alive
+			const oscillator = timerAudioContext.createOscillator();
+			const gain = timerAudioContext.createGain();
+			const keepAliveGain = 0.001; // Nearly silent
+			gain.gain.setValueAtTime(keepAliveGain, timerAudioContext.currentTime);
+			oscillator.frequency.value = 20; // Sub-bass, mostly inaudible
+			oscillator.connect(gain);
+			gain.connect(timerAudioContext.destination);
+			oscillator.start();
+			// Keep a reference to stop it later
+			timerKeepAliveOsc = oscillator;
+			timerKeepAliveGain = gain;
+		} catch (e) {
+			// Keepalive not available
+		}
+	}
+
+	function stopKeepAliveAudio() {
+		if (timerKeepAliveOsc) {
+			try { timerKeepAliveOsc.stop(); } catch (e) {}
+			timerKeepAliveOsc = null;
+		}
+		timerKeepAliveGain = null;
+	}
+
+	let timerKeepAliveOsc = null;
+	let timerKeepAliveGain = null;
 
 	function playTimerBeep() {
 		const beepCount = data.settings?.timerBeepCount ?? 2;
@@ -4044,6 +4108,8 @@ function renderStandardGraphGlobal(wrapper, best1RMValue, levels, standards) {
 			timerEndTime = null;
 			timerMode = null;
 		}
+		releaseWakeLock();
+		stopKeepAliveAudio();
 		if (window.AndroidInterface && window.AndroidInterface.stopTimer) {
 			window.AndroidInterface.stopTimer();
 		}
@@ -4073,6 +4139,8 @@ function renderStandardGraphGlobal(wrapper, best1RMValue, levels, standards) {
 		timerMode = 'up';
 		timerStartTime = Date.now();
 		timerInterval = setInterval(tickTimer, 1000);
+		acquireWakeLock();
+		startKeepAliveAudio();
 		if (window.AndroidInterface && window.AndroidInterface.startTimer) {
 			window.AndroidInterface.startTimer();
 		}
@@ -4085,6 +4153,8 @@ function renderStandardGraphGlobal(wrapper, best1RMValue, levels, standards) {
 		timerMode = 'down';
 		timerEndTime = Date.now() + seconds * 1000;
 		timerInterval = setInterval(tickTimer, 1000);
+		acquireWakeLock();
+		startKeepAliveAudio();
 		if (window.AndroidInterface && window.AndroidInterface.startTimer) {
 			window.AndroidInterface.startTimer();
 		}
@@ -4095,6 +4165,14 @@ function renderStandardGraphGlobal(wrapper, best1RMValue, levels, standards) {
 	function syncTimerOnWake() {
 		if (timerMode) {
 			tickTimer();
+			// Re-acquire wake lock if it was lost during sleep
+			if (timerMode && !timerWakeLock) {
+				acquireWakeLock();
+			}
+			// Resume keepalive audio if needed
+			if (timerMode && !timerKeepAliveOsc) {
+				startKeepAliveAudio();
+			}
 		}
 	}
 
@@ -4105,6 +4183,10 @@ function renderStandardGraphGlobal(wrapper, best1RMValue, levels, standards) {
 	});
 
 	window.addEventListener('focus', syncTimerOnWake);
+
+	// Handle WebView/Cordova resume events
+	document.addEventListener('resume', syncTimerOnWake);
+	window.addEventListener('pageshow', syncTimerOnWake);
 
 	if (floatingTimer) {
 		floatingTimer.style.touchAction = 'none';
