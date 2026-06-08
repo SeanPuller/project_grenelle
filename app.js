@@ -1,4 +1,4 @@
-const APP_VERSION = '0.88';
+const APP_VERSION = '0.89';
 document.addEventListener('DOMContentLoaded', () => {
 	const mainContent = document.getElementById('main-content');
 	const navLinks = document.querySelectorAll('.nav-link');
@@ -84,7 +84,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 	const DEFAULT_DATA = {
 		version: 1,
-		settings: { debugDate: '', showHomeLogs: true, showRoutineNoteIcons: true, searchType: 'contains', oneRMFormula: 'epley', timerAlertSound: 'single', timerBeepCount: 2, timerAlertVolume: 80, customTypes: [], hueRotation: 0, colors: { ...DEFAULT_COLORS }, enableCustomCopyText: false, customCopyText: 'You are a strength coach. Critique this workout data' },
+		settings: { debugDate: '', showHomeLogs: true, showVolumeHome: true, showVolumeExercises: true, showRoutineNoteIcons: true, searchType: 'contains', oneRMFormula: 'epley', timerAlertSound: 'single', timerBeepCount: 2, timerAlertVolume: 80, customTypes: [], hueRotation: 0, colors: { ...DEFAULT_COLORS }, enableCustomCopyText: false, customCopyText: 'You are a strength coach. Critique this workout data' },
 		home: {
 			history: {}
 		},
@@ -103,6 +103,8 @@ document.addEventListener('DOMContentLoaded', () => {
 				settings: {
 					debugDate: '',
 					showHomeLogs: true,
+					showVolumeHome: true,
+					showVolumeExercises: true,
 					showRoutineNoteIcons: true,
 					searchType: 'contains',
 					oneRMFormula: 'epley',
@@ -362,6 +364,25 @@ document.addEventListener('DOMContentLoaded', () => {
 			default:
 				return oneRM / (1 + r / 30);
 		}
+	}
+
+	function calculateSetVolume(logEntry) {
+		// Don't count partial sets towards volume
+		if (logEntry.type === 'p') return 0;
+		const w = parseFloat(logEntry.data?.kg);
+		const r = parseFloat(logEntry.data?.reps);
+		if (!isNaN(w) && !isNaN(r) && r > 0 && Number.isInteger(r)) {
+			return w * r;
+		}
+		return 0;
+	}
+
+	function calculateLogsVolume(logs) {
+		let total = 0;
+		logs.forEach(log => {
+			total += calculateSetVolume(log);
+		});
+		return total;
 	}
 
 // Global renderer for strength-standard 1D graphs used across views
@@ -1411,6 +1432,21 @@ function renderStandardGraphGlobal(wrapper, best1RMValue, levels, standards) {
 					titleSpan.textContent = isViewingToday ? "today's sets" : `sets on ${logsDate}`;
 					logsHeading.appendChild(titleSpan);
 
+					// Total volume for today
+					const showVolumeHome = data.settings?.showVolumeHome !== false;
+					if (showVolumeHome) {
+						const allLogEntries = todayLogs.map(t => t.log);
+						const totalVolume = calculateLogsVolume(allLogEntries);
+						if (totalVolume > 0) {
+							const totalVolSpan = document.createElement('span');
+							totalVolSpan.style.fontSize = '12px';
+							totalVolSpan.style.fontWeight = '400';
+							totalVolSpan.style.color = 'var(--text-light)';
+							totalVolSpan.textContent = `total ${Math.round(totalVolume)} kg`;
+							logsHeading.insertBefore(totalVolSpan, logsHeading.querySelector('.material-icons-outlined'));
+						}
+					}
+
 					const copyBtn = document.createElement('span');
 					copyBtn.className = 'material-icons-outlined';
 					copyBtn.textContent = 'content_copy';
@@ -1469,6 +1505,17 @@ function renderStandardGraphGlobal(wrapper, best1RMValue, levels, standards) {
 						exHeader.className = 'day-header';
 						exHeader.style.cursor = 'pointer';
 						exHeader.innerHTML = `<span>${exName}</span>`;
+						if (showVolumeHome) {
+							const exVolume = calculateLogsVolume(logs);
+							if (exVolume > 0) {
+								const volSpan = document.createElement('span');
+								volSpan.style.fontSize = '12px';
+								volSpan.style.fontWeight = '400';
+								volSpan.style.color = 'var(--text-light)';
+								volSpan.textContent = `${Math.round(exVolume)} kg`;
+								exHeader.appendChild(volSpan);
+							}
+						}
 						exHeader.addEventListener('click', () => {
 							currentExercise = exName;
 							renderView('exercise-detail');
@@ -2830,6 +2877,18 @@ function renderStandardGraphGlobal(wrapper, best1RMValue, levels, standards) {
 						headerText += '  ' + commonTags.map(t => `#${t}`).join(' ');
 					}
 					header.innerHTML = `<span>${headerText}</span>`;
+					const showVolExercises = data.settings?.showVolumeExercises !== false;
+					if (showVolExercises) {
+						const dayVol = calculateLogsVolume(daySets);
+						if (dayVol > 0) {
+							const volSpan = document.createElement('span');
+							volSpan.style.fontSize = '12px';
+							volSpan.style.fontWeight = '400';
+							volSpan.style.color = 'var(--text-light)';
+							volSpan.textContent = `${Math.round(dayVol)} kg`;
+							header.appendChild(volSpan);
+						}
+					}
 					dayDiv.appendChild(header);
 
 					let workSetCount = 0;
@@ -3225,6 +3284,38 @@ function renderStandardGraphGlobal(wrapper, best1RMValue, levels, standards) {
 				(homeLogsRow || homeLogsToggle).addEventListener('click', () => {
 					if (!data.settings) data.settings = {};
 					data.settings.showHomeLogs = !isOn();
+					saveData();
+					updateToggle();
+				});
+			}
+
+			const volumeHomeToggle = content.querySelector('#toggle-volume-home');
+			if (volumeHomeToggle) {
+				const isOn = () => data.settings?.showVolumeHome !== false;
+				const updateToggle = () => {
+					volumeHomeToggle.textContent = isOn() ? 'check_box' : 'check_box_outline_blank';
+				};
+				updateToggle();
+				const row = volumeHomeToggle.closest('.list-item');
+				(row || volumeHomeToggle).addEventListener('click', () => {
+					if (!data.settings) data.settings = {};
+					data.settings.showVolumeHome = !isOn();
+					saveData();
+					updateToggle();
+				});
+			}
+
+			const volumeExercisesToggle = content.querySelector('#toggle-volume-exercises');
+			if (volumeExercisesToggle) {
+				const isOn = () => data.settings?.showVolumeExercises !== false;
+				const updateToggle = () => {
+					volumeExercisesToggle.textContent = isOn() ? 'check_box' : 'check_box_outline_blank';
+				};
+				updateToggle();
+				const row = volumeExercisesToggle.closest('.list-item');
+				(row || volumeExercisesToggle).addEventListener('click', () => {
+					if (!data.settings) data.settings = {};
+					data.settings.showVolumeExercises = !isOn();
 					saveData();
 					updateToggle();
 				});
