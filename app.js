@@ -1,4 +1,10 @@
-const APP_VERSION = '0.90';
+const APP_VERSION = '0.91';
+
+// Disable browser's automatic scroll restoration so SPA navigation controls scroll position
+if ('scrollRestoration' in history) {
+	history.scrollRestoration = 'manual';
+}
+
 document.addEventListener('DOMContentLoaded', () => {
 	const mainContent = document.getElementById('main-content');
 	const navLinks = document.querySelectorAll('.nav-link');
@@ -1245,6 +1251,7 @@ function renderStandardGraphGlobal(wrapper, best1RMValue, levels, standards) {
 		}
 
 		mainContent.innerHTML = '';
+		window.scrollTo(0, 0);
 		const content = template.content.cloneNode(true);
 
 		if (viewName === 'home') {
