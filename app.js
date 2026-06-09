@@ -1,4 +1,4 @@
-const APP_VERSION = '0.93';
+const APP_VERSION = '0.94';
 
 // Disable browser's automatic scroll restoration so SPA navigation controls scroll position
 if ('scrollRestoration' in history) {
@@ -2068,11 +2068,13 @@ function renderStandardGraphGlobal(wrapper, best1RMValue, levels, standards) {
 				const statsList = document.getElementById('exercise-stats-list');
 				const strengthStandardsSection = document.getElementById('exercise-strength-standards');
 				const filterContainer = document.getElementById('exercise-data-filters');
+				const copyLogsContainer = document.getElementById('exercise-copy-logs');
 				if (!recordsList || !statsList || !strengthStandardsSection) return;
 
 				recordsList.innerHTML = '';
 				strengthStandardsSection.innerHTML = '';
 				statsList.innerHTML = '';
+				if (copyLogsContainer) copyLogsContainer.innerHTML = '';
 
 				// Tag filtering UI
 				if (filterContainer) {
@@ -2142,6 +2144,74 @@ function renderStandardGraphGlobal(wrapper, best1RMValue, levels, standards) {
 					} else {
 						filterContainer.style.display = 'none';
 					}
+				}
+
+				// Copy exercise logs button
+				if (copyLogsContainer) {
+					const copyBtn = document.createElement('div');
+					copyBtn.className = 'list-item';
+					copyBtn.style.display = 'flex';
+					copyBtn.style.justifyContent = 'space-between';
+					copyBtn.style.alignItems = 'center';
+					copyBtn.style.cursor = 'pointer';
+
+					const label = document.createElement('span');
+					label.textContent = 'copy exercise logs';
+					copyBtn.appendChild(label);
+
+					const icon = document.createElement('span');
+					icon.className = 'material-icons-outlined';
+					icon.textContent = 'content_copy';
+					icon.style.fontSize = '20px';
+					copyBtn.appendChild(icon);
+
+					copyBtn.addEventListener('click', () => {
+						let text = `${currentExercise}\n`;
+						const exerciseLogs = [...exObj.logs].sort((a, b) => {
+							const da = a.date.split('-').reverse().join('');
+							const db = b.date.split('-').reverse().join('');
+							return da.localeCompare(db) || a.order - b.order;
+						});
+
+						let currentDate = '';
+						let workSetCount = 0;
+						exerciseLogs.forEach(set => {
+							if (set.date !== currentDate) {
+								currentDate = set.date;
+								text += `\n${currentDate}\n`;
+								workSetCount = 0;
+							}
+							const setType = set.type || 's';
+							let setLabel;
+							if (setType === 'w') setLabel = 'W';
+							else if (setType === 'p') setLabel = 'P';
+							else { workSetCount++; setLabel = workSetCount.toString(); }
+
+							let metrics = Object.entries(set.data).map(([k, v]) => `${v}${k}`).join(' ');
+							if (set.data.kg !== undefined && set.data.reps !== undefined) {
+								metrics = `${set.data.kg}kg x ${set.data.reps}`;
+								const others = Object.entries(set.data).filter(([k]) => k !== 'kg' && k !== 'reps');
+								if (others.length > 0) {
+									metrics += ' ' + others.map(([k, v]) => `${v}${k}`).join(' ');
+								}
+							}
+
+							const setTags = getSetTags(set);
+							const tagsStr = setTags.length > 0 ? ' ' + setTags.map(t => `#${t}`).join(' ') : '';
+
+							text += `${setLabel}. ${metrics}${tagsStr}\n`;
+						});
+
+						navigator.clipboard.writeText(text.trim()).then(() => {
+							const originalIcon = icon.textContent;
+							icon.textContent = 'done';
+							setTimeout(() => {
+								icon.textContent = originalIcon;
+							}, 1500);
+						});
+					});
+
+					copyLogsContainer.appendChild(copyBtn);
 				}
 
 				let workingLogs = exObj.logs.filter(log => log.type !== 'w' && log.type !== 'p');
