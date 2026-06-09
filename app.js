@@ -1,4 +1,4 @@
-const APP_VERSION = '0.94';
+const APP_VERSION = '0.95';
 
 // Disable browser's automatic scroll restoration so SPA navigation controls scroll position
 if ('scrollRestoration' in history) {
@@ -325,7 +325,7 @@ document.addEventListener('DOMContentLoaded', () => {
 		return entries;
 	}
 
-	function renderExerciseNameWithNote(container, name, note, align = 'left') {
+	function renderExerciseNameWithNote(container, name, note, align = 'left', hasExerciseNotes = false) {
 		const wrap = document.createElement('span');
 		wrap.className = 'exercise-with-note';
 		wrap.style.flex = '1';
@@ -336,6 +336,18 @@ document.addEventListener('DOMContentLoaded', () => {
 		nameSpan.textContent = name;
 		wrap.appendChild(nameSpan);
 
+		if (hasExerciseNotes) {
+			const noteIcon = document.createElement('span');
+			noteIcon.className = 'material-icons-outlined';
+			noteIcon.textContent = 'notes';
+			noteIcon.style.fontSize = '14px';
+			noteIcon.style.color = 'var(--text-light)';
+			noteIcon.style.marginLeft = '4px';
+			noteIcon.style.verticalAlign = 'middle';
+			noteIcon.title = 'has notes';
+			nameSpan.appendChild(noteIcon);
+		}
+
 		if (note) {
 			const noteSpan = document.createElement('span');
 			noteSpan.className = 'routine-note';
@@ -345,6 +357,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
 		container.appendChild(wrap);
 		return wrap;
+	}
+
+	function exerciseHasNotes(exName) {
+		const ex = data.exercises.find(e => e.name === exName);
+		return ex && ex.notes && ex.notes.trim();
 	}
 
 	function calculateOneRM(w, r) {
@@ -1369,7 +1386,9 @@ function renderStandardGraphGlobal(wrapper, best1RMValue, levels, standards) {
 					div.style.display = 'flex';
 					div.style.alignItems = 'center';
 
-					renderExerciseNameWithNote(div, itemName, itemNote);
+					const exForNote = data.exercises.find(e => e.name === itemName);
+					const hasNote = exForNote && exForNote.notes && exForNote.notes.trim();
+					renderExerciseNameWithNote(div, itemName, itemNote, 'left', !!hasNote);
 
 					const rmBtn = document.createElement('button');
 					rmBtn.className = 'btn-remove-sm material-icons-outlined';
@@ -1975,14 +1994,12 @@ function renderStandardGraphGlobal(wrapper, best1RMValue, levels, standards) {
 						div.style.display = 'flex';
 						div.style.alignItems = 'center';
 
-						const textSpan = document.createElement('span');
-						textSpan.style.flex = '1';
-						textSpan.textContent = item.name;
-						textSpan.style.cursor = 'pointer';
-						div.appendChild(textSpan);
+						const hasNote = item.notes && item.notes.trim();
+						const nameWrap = renderExerciseNameWithNote(div, item.name, '', 'left', !!hasNote);
+						const nameSpan = nameWrap.querySelector('.exercise-name');
 
-						addLongPressListener(textSpan, () => {
-							renderInlineRename(textSpan, item.name, (newName) => {
+						addLongPressListener(nameSpan, () => {
+							renderInlineRename(nameSpan, item.name, (newName) => {
 								renameExercise(item.name, newName);
 								renderView('exercises');
 							});
