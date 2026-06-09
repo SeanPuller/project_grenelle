@@ -1,4 +1,4 @@
-const APP_VERSION = '0.95';
+const APP_VERSION = '0.96';
 
 // Disable browser's automatic scroll restoration so SPA navigation controls scroll position
 if ('scrollRestoration' in history) {
@@ -4028,7 +4028,9 @@ function renderStandardGraphGlobal(wrapper, best1RMValue, levels, standards) {
 				const text = generateLogsText(startDate, endDate);
 				if (!text) return;
 
-				if (navigator.share) {
+				if (window.AndroidInterface && window.AndroidInterface.share) {
+					window.AndroidInterface.share(text);
+				} else if (navigator.share) {
 					navigator.share({
 						title: 'Workout Data',
 						text: text
