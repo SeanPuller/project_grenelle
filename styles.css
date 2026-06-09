@@ -556,7 +556,7 @@ body {
 
 #exercise-1rm-section td {
 	transition: background-color 0.2s;
-	padding: 8px 35px !important;
+	padding: 8px 15px !important;
 }
 
 #exercise-1rm-section tr:hover td {
