@@ -1,4 +1,4 @@
-const APP_VERSION = '0.91';
+const APP_VERSION = '0.92';
 
 // Disable browser's automatic scroll restoration so SPA navigation controls scroll position
 if ('scrollRestoration' in history) {
@@ -90,7 +90,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 	const DEFAULT_DATA = {
 		version: 1,
-		settings: { debugDate: '', showHomeLogs: true, showVolumeHome: true, showVolumeExercises: true, showRoutineNoteIcons: true, searchType: 'contains', oneRMFormula: 'epley', timerAlertSound: 'single', timerBeepCount: 2, timerAlertVolume: 80, customTypes: [], hueRotation: 0, colors: { ...DEFAULT_COLORS }, enableCustomCopyText: false, customCopyText: 'You are a strength coach. Critique this workout data' },
+		settings: { debugDate: '', showHomeLogs: true, showVolumeHome: true, showVolumeExercises: true, showRoutineNoteIcons: true, searchType: 'contains', oneRMFormula: 'epley', timerAlertSound: 'single', timerBeepCount: 2, timerAlertVolume: 80, customTypes: [], hueRotation: 0, colors: { ...DEFAULT_COLORS }, enableCustomCopyText: false, customCopyText: 'You are a strength coach. Critique this workout data', enableRestTimer: true },
 		home: {
 			history: {}
 		},
@@ -122,6 +122,7 @@ document.addEventListener('DOMContentLoaded', () => {
 					colors: { ...DEFAULT_COLORS },
 					enableCustomCopyText: false,
 					customCopyText: 'You are a strength coach. Critique this workout data',
+					enableRestTimer: true,
 					...(parsed.settings || {})
 				},
 				home: parsed.home || DEFAULT_DATA.home,
@@ -1147,11 +1148,14 @@ function renderStandardGraphGlobal(wrapper, best1RMValue, levels, standards) {
 	function getExerciseObj(name) {
 		let ex = data.exercises.find(e => e.name === name);
 		if (!ex) {
-			ex = { name: name, types: ['kg', 'reps'], logs: [], notes: '', strengthStandards: {} };
+			ex = { name: name, types: ['kg', 'reps'], logs: [], notes: '', strengthStandards: {}, restTimer: 0 };
 			data.exercises.push(ex);
 		}
 		if (!ex.strengthStandards) {
 			ex.strengthStandards = {};
+		}
+		if (ex.restTimer === undefined) {
+			ex.restTimer = 0;
 		}
 		return ex;
 	}
@@ -2852,10 +2856,101 @@ function renderStandardGraphGlobal(wrapper, best1RMValue, levels, standards) {
 						}
 
 						exObj.logs.push(logEntry);
+						// Auto-start rest timer if enabled and exercise has a rest timer set
+						const restTimerSecs = parseInt(exObj.restTimer, 10);
+						if (data.settings?.enableRestTimer !== false && restTimerSecs > 0) {
+							// Pass the timer via a small delay so renderView doesn't interrupt it
+							setTimeout(() => startCountDown(restTimerSecs), 50);
+						}
 						renderView('exercise-detail');
 					}
 				});
 				logSection.appendChild(addBtn);
+
+				// --- Rest Timer Row ---
+				const restRow = document.createElement('div');
+				restRow.style.display = 'flex';
+				restRow.style.alignItems = 'center';
+				restRow.style.justifyContent = 'space-between';
+				restRow.style.padding = '10px 0';
+				restRow.style.marginBottom = '8px';
+				restRow.style.borderTop = '1px solid var(--border-color)';
+				restRow.style.cursor = 'default';
+
+				const restLabel = document.createElement('span');
+				restLabel.textContent = 'rest';
+				restLabel.style.fontSize = '14px';
+				restRow.appendChild(restLabel);
+
+				const restValueRow = document.createElement('div');
+				restValueRow.style.display = 'flex';
+				restValueRow.style.alignItems = 'center';
+				restValueRow.style.gap = '6px';
+
+				const currentRest = parseInt(exObj.restTimer, 10) || 0;
+				const restMinutes = Math.floor(currentRest / 60);
+				const restSeconds = currentRest % 60;
+
+				const restMinInput = document.createElement('input');
+				restMinInput.type = 'number';
+				restMinInput.className = 'val-input';
+				restMinInput.placeholder = 'min';
+				restMinInput.value = restMinutes || '';
+				restMinInput.style.width = '40px';
+				restMinInput.inputMode = 'numeric';
+				restMinInput.min = '0';
+
+				const restMinLabel = document.createElement('span');
+				restMinLabel.className = 'unit';
+				restMinLabel.textContent = 'min';
+
+				const restSecInput = document.createElement('input');
+				restSecInput.type = 'number';
+				restSecInput.className = 'val-input';
+				restSecInput.placeholder = 'sec';
+				restSecInput.value = restSeconds || '';
+				restSecInput.style.width = '40px';
+				restSecInput.inputMode = 'numeric';
+				restSecInput.min = '0';
+				restSecInput.max = '59';
+
+				const restSecLabel = document.createElement('span');
+				restSecLabel.className = 'unit';
+				restSecLabel.textContent = 'sec';
+
+				function saveRestTimer() {
+					const mins = parseInt(restMinInput.value, 10) || 0;
+					const secs = parseInt(restSecInput.value, 10) || 0;
+					const total = mins * 60 + secs;
+					exObj.restTimer = total > 0 ? total : 0;
+					saveData();
+				}
+
+				restMinInput.addEventListener('input', saveRestTimer);
+				restSecInput.addEventListener('input', saveRestTimer);
+
+				restMinInput.addEventListener('keydown', (e) => {
+					if (e.key === 'Enter') {
+						e.stopPropagation();
+						restSecInput.focus();
+						restSecInput.select();
+					}
+				});
+
+				restSecInput.addEventListener('keydown', (e) => {
+					if (e.key === 'Enter') {
+						e.stopPropagation();
+						restSecInput.blur();
+					}
+				});
+
+				restValueRow.appendChild(restMinInput);
+				restValueRow.appendChild(restMinLabel);
+				restValueRow.appendChild(restSecInput);
+				restValueRow.appendChild(restSecLabel);
+
+				restRow.appendChild(restValueRow);
+				logSection.appendChild(restRow);
 			}
 
 			const historyList = content.querySelector('.history-list');
@@ -3375,6 +3470,22 @@ function renderStandardGraphGlobal(wrapper, best1RMValue, levels, standards) {
 						saveData();
 						renderView('settings');
 					}, 'add new', false);
+				});
+			}
+
+			const restTimerToggle = content.querySelector('#toggle-rest-timer');
+			if (restTimerToggle) {
+				const isOn = () => data.settings?.enableRestTimer !== false;
+				const updateToggle = () => {
+					restTimerToggle.textContent = isOn() ? 'check_box' : 'check_box_outline_blank';
+				};
+				updateToggle();
+				const restTimerRow = restTimerToggle.closest('.list-item');
+				(restTimerRow || restTimerToggle).addEventListener('click', () => {
+					if (!data.settings) data.settings = {};
+					data.settings.enableRestTimer = !isOn();
+					saveData();
+					updateToggle();
 				});
 			}
 
