@@ -1,4 +1,4 @@
-const APP_VERSION = '0.89';
+const APP_VERSION = '0.90';
 document.addEventListener('DOMContentLoaded', () => {
 	const mainContent = document.getElementById('main-content');
 	const navLinks = document.querySelectorAll('.nav-link');
@@ -2462,6 +2462,18 @@ function renderStandardGraphGlobal(wrapper, best1RMValue, levels, standards) {
 				if (oneRMSection) {
 					oneRMSection.innerHTML = '';
 
+					// Determine the best 1RM log entry to prefill the table
+					let baseWeight = heaviestWeight;
+					let baseReps = heaviestWeightReps;
+					if (best1RMLog) {
+						const bw = parseFloat(best1RMLog.data.kg);
+						const br = parseInt(best1RMLog.data.reps, 10);
+						if (!isNaN(bw) && !isNaN(br) && br > 0) {
+							baseWeight = bw;
+							baseReps = br;
+						}
+					}
+
 					const inputRow = document.createElement('div');
 					inputRow.className = 'set-row'; // Use set-row instead of list-item to avoid user-select: none
 					inputRow.style.display = 'flex';
@@ -2476,10 +2488,10 @@ function renderStandardGraphGlobal(wrapper, best1RMValue, levels, standards) {
 							<span style="font-size:10px; color:var(--text-light)">weight & reps</span>
 						</div>
 						<div style="display:flex; align-items:center; gap:8px;">
-							<input type="number" id="base-weight-input" class="val-input is-prefilled" style="width: 50px; text-align: right;" value="${Math.round(heaviestWeight)}" placeholder="${Math.round(heaviestWeight)}" inputmode="decimal">
+							<input type="number" id="base-weight-input" class="val-input is-prefilled" style="width: 50px; text-align: right;" value="${Math.round(baseWeight)}" placeholder="${Math.round(baseWeight)}" inputmode="decimal">
 							<span class="unit">kg</span>
 							<span style="color:var(--text-light); font-size:12px;">x</span>
-							<input type="number" id="base-reps-input" class="val-input is-prefilled" style="width: 40px; text-align: right;" value="${heaviestWeightReps}" placeholder="${heaviestWeightReps}" inputmode="numeric">
+							<input type="number" id="base-reps-input" class="val-input is-prefilled" style="width: 40px; text-align: right;" value="${baseReps}" placeholder="${baseReps}" inputmode="numeric">
 							<span class="unit">reps</span>
 						</div>
 					`;
@@ -2533,7 +2545,7 @@ function renderStandardGraphGlobal(wrapper, best1RMValue, levels, standards) {
 					tableContainer.appendChild(table);
 				};
 
-					const current1RM = calculateOneRM(heaviestWeight, heaviestWeightReps);
+					const current1RM = calculateOneRM(baseWeight, baseReps);
 					renderTable(current1RM);
 
 					const weightInput = inputRow.querySelector('#base-weight-input');
