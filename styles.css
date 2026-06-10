@@ -28,6 +28,11 @@ textarea {
 	color: var(--text-dark);
 }
 
+/* Prevent iOS auto-zoom when focusing on input fields */
+input, select, textarea {
+	font-size: 16px;
+}
+
 #custom-copy-text-input {
 	text-transform: none !important;
 }

@@ -1,4 +1,4 @@
-const APP_VERSION = '0.96';
+const APP_VERSION = '0.97';
 
 // Disable browser's automatic scroll restoration so SPA navigation controls scroll position
 if ('scrollRestoration' in history) {
