@@ -1,4 +1,4 @@
-const APP_VERSION = '0.97';
+const APP_VERSION = '0.98';
 
 // Disable browser's automatic scroll restoration so SPA navigation controls scroll position
 if ('scrollRestoration' in history) {
@@ -2782,13 +2782,31 @@ function renderStandardGraphGlobal(wrapper, best1RMValue, levels, standards) {
 				const todayLogs = exObj.logs.filter(l => l.date === today).sort((a, b) => (a.ts || 0) - (b.ts || 0));
 
 				const prefillSet = (() => {
+					const todayWarmupCount = todayLogs.filter(l => l.type === 'w').length;
+					const todayWorkCount = todayLogs.filter(l => l.type !== 'w').length;
+					const warmupRefLogs = referenceSessionLogs.filter(l => l.type === 'w');
+					const workingRefLogs = referenceSessionLogs.filter(l => l.type !== 'w');
+
 					if (referenceSessionLogs.length > 0) {
-						const currentSetIdx = todayLogs.length;
-						if (currentSetIdx < referenceSessionLogs.length) {
-							return referenceSessionLogs[currentSetIdx];
+						if (todayWorkCount > 0) {
+							// At least one working set logged — sync by working set index
+							const idx = todayWorkCount;
+							if (idx < workingRefLogs.length) {
+								return workingRefLogs[idx];
+							} else {
+								return workingRefLogs[workingRefLogs.length - 1];
+							}
 						} else {
-							// Exceeded previous session sets, use its last set
-							return referenceSessionLogs[referenceSessionLogs.length - 1];
+							// Only warmups (or nothing) logged — sync by warmup index
+							const idx = todayWarmupCount;
+							if (idx < warmupRefLogs.length) {
+								return warmupRefLogs[idx];
+							} else {
+								// No more warmups in reference, suggest first working set
+								if (workingRefLogs.length > 0) {
+									return workingRefLogs[0];
+								}
+							}
 						}
 					} else if (todayLogs.length > 0) {
 						return todayLogs[todayLogs.length - 1];
