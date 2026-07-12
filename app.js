@@ -1,4 +1,4 @@
-const APP_VERSION = '0.99';
+const APP_VERSION = '0.100';
 
 // Disable browser's automatic scroll restoration so SPA navigation controls scroll position
 if ('scrollRestoration' in history) {
@@ -4581,7 +4581,7 @@ function renderStandardGraphGlobal(wrapper, best1RMValue, levels, standards) {
 		acquireWakeLock();
 		startKeepAliveAudio();
 		if (window.AndroidInterface && window.AndroidInterface.startTimer) {
-			window.AndroidInterface.startTimer();
+			window.AndroidInterface.startTimer('up', timerStartTime, 0);
 		}
 		floatingTimer.style.opacity = '0.9';
 		tickTimer();
@@ -4595,7 +4595,7 @@ function renderStandardGraphGlobal(wrapper, best1RMValue, levels, standards) {
 		acquireWakeLock();
 		startKeepAliveAudio();
 		if (window.AndroidInterface && window.AndroidInterface.startTimer) {
-			window.AndroidInterface.startTimer();
+			window.AndroidInterface.startTimer('down', 0, timerEndTime);
 		}
 		floatingTimer.style.opacity = '0.9';
 		tickTimer();
