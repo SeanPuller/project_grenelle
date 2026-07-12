@@ -335,7 +335,6 @@ body {
 	line-height: 24px;
 	border: none;
 	outline: none;
-	resize: none;
 	background: repeating-linear-gradient(transparent,
 			transparent 23px,
 			var(--notes-line-color) 23px,
@@ -345,6 +344,9 @@ body {
 	margin: 0;
 	overflow: hidden;
 	display: block;
+	cursor: text;
+	white-space: pre-wrap;
+	overflow-wrap: anywhere;
 }
 
 /* Exercise Detail View */
@@ -418,7 +420,6 @@ body {
 	line-height: 24px;
 	border: none;
 	outline: none;
-	resize: none;
 	background: repeating-linear-gradient(transparent,
 			transparent 23px,
 			var(--notes-line-color) 23px,
@@ -428,6 +429,30 @@ body {
 	margin: 0;
 	overflow: hidden;
 	display: block;
+	cursor: text;
+	white-space: pre-wrap;
+	overflow-wrap: anywhere;
+}
+
+.notes-textarea:empty::before,
+.visible-note-input:empty::before {
+	content: attr(data-placeholder);
+	color: var(--text-disabled);
+	pointer-events: none;
+}
+
+.note-link {
+	color: var(--text-dark);
+	text-decoration: underline;
+	text-decoration-style: dotted;
+	text-underline-offset: 2px;
+	font-weight: 500;
+	word-break: break-all;
+}
+
+.note-link:hover {
+	background-color: var(--primary-color);
+	text-decoration-style: solid;
 }
 
 .log-input-section {

@@ -1,8 +1,51 @@
-const APP_VERSION = '0.98';
+const APP_VERSION = '0.99';
 
 // Disable browser's automatic scroll restoration so SPA navigation controls scroll position
 if ('scrollRestoration' in history) {
 	history.scrollRestoration = 'manual';
+}
+
+// Convert URLs in text to clickable hyperlinks
+function urlify(text) {
+	if (!text) return '';
+	const urlRegex = /(https?:\/\/[^\s<]+)/g;
+	return text.replace(urlRegex, '<a href="$1" target="_blank" rel="noopener noreferrer" class="note-link">$1</a>');
+}
+
+// Scan a contenteditable element for plain text URLs and wrap them in <a> tags
+// Uses TreeWalker to only target text nodes (not already-linked text)
+function linkifyContentEditable(el) {
+	const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT, null, false);
+	const urlRegex = /https?:\/\/[^\s]+/g;
+	let node;
+	const toReplace = [];
+	while (node = walker.nextNode()) {
+		if (node.textContent.match(urlRegex)) {
+			toReplace.push(node);
+		}
+	}
+	// Process in reverse order to avoid invalidating walker positions
+	for (let i = toReplace.length - 1; i >= 0; i--) {
+		const textNode = toReplace[i];
+		const text = textNode.textContent;
+		const parts = text.split(urlRegex);
+		const matches = text.match(urlRegex);
+		if (!matches) continue;
+		const fragment = document.createDocumentFragment();
+		parts.forEach((part, idx) => {
+			if (part) fragment.appendChild(document.createTextNode(part));
+			if (idx < matches.length) {
+				const a = document.createElement('a');
+				a.href = matches[idx];
+				a.target = '_blank';
+				a.rel = 'noopener noreferrer';
+				a.className = 'note-link';
+				a.textContent = matches[idx];
+				fragment.appendChild(a);
+			}
+		});
+		textNode.parentNode.replaceChild(fragment, textNode);
+	}
 }
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -2709,17 +2752,52 @@ function renderStandardGraphGlobal(wrapper, best1RMValue, levels, standards) {
 					label.textContent = duplicateCount > 1 ? `${routine.name} #${index + 1}` : routine.name;
 					row.appendChild(label);
 
-					const input = document.createElement('textarea');
-					input.className = 'visible-note-input';
-					input.placeholder = 'visible note...';
-					input.value = getRoutineItemNote(routine, index);
-					input.rows = 1;
-					input.addEventListener('input', () => {
-						setRoutineItemNote(routine, index, input.value);
+					const noteDiv = document.createElement('div');
+					noteDiv.className = 'visible-note-input';
+					noteDiv.contentEditable = 'true';
+					const noteText = getRoutineItemNote(routine, index);
+					noteDiv.innerHTML = urlify(noteText);
+					noteDiv.dataset.placeholder = 'visible note...';
+
+					noteDiv.addEventListener('input', () => {
+						const plainText = noteDiv.innerText || '';
+						setRoutineItemNote(routine, index, plainText);
 						saveData();
 						resizeNotesTextareas(row);
 					});
-					row.appendChild(input);
+
+					noteDiv.addEventListener('paste', (e) => {
+						e.preventDefault();
+						const text = (e.clipboardData || window.clipboardData).getData('text/plain');
+						document.execCommand('insertText', false, text);
+						linkifyContentEditable(noteDiv);
+						const plainText = noteDiv.innerText || '';
+						setRoutineItemNote(routine, index, plainText);
+						saveData();
+						resizeNotesTextareas(row);
+					});
+
+					noteDiv.addEventListener('blur', () => {
+						linkifyContentEditable(noteDiv);
+						const plainText = noteDiv.innerText || '';
+						setRoutineItemNote(routine, index, plainText);
+						saveData();
+					});
+
+					noteDiv.addEventListener('click', (e) => {
+						let target = e.target;
+						while (target && target !== noteDiv) {
+							if (target.tagName === 'A') {
+								e.preventDefault();
+								e.stopPropagation();
+								window.open(target.href, '_blank', 'noopener,noreferrer');
+								return;
+							}
+							target = target.parentNode;
+						}
+					});
+
+					row.appendChild(noteDiv);
 
 					section.appendChild(row);
 				});
@@ -2730,7 +2808,7 @@ function renderStandardGraphGlobal(wrapper, best1RMValue, levels, standards) {
 
 			renderVisibleRoutineNotes();
 
-			// Notes textarea persistence
+			// Notes contenteditable persistence
 			const notesArea = content.querySelector('.notes-textarea');
 			if (notesArea) {
 				const notesHeading = document.createElement('div');
@@ -2738,17 +2816,50 @@ function renderStandardGraphGlobal(wrapper, best1RMValue, levels, standards) {
 				notesHeading.textContent = 'notes';
 				notesArea.parentNode.insertBefore(notesHeading, notesArea);
 
-				notesArea.value = exObj.notes || '';
+				notesArea.innerHTML = urlify(exObj.notes || '');
 
 				const autoResize = () => {
 					notesArea.style.height = '24px';
 					notesArea.style.height = Math.max(24, notesArea.scrollHeight) + 'px';
 				};
 
-				notesArea.addEventListener('input', (e) => {
-					exObj.notes = e.target.value;
+				notesArea.addEventListener('input', () => {
+					exObj.notes = notesArea.innerText || '';
 					autoResize();
-					saveData(); // auto-save on type
+					saveData();
+				});
+
+				// Paste handler: insert plain text then convert URLs to links
+				notesArea.addEventListener('paste', (e) => {
+					e.preventDefault();
+					const text = (e.clipboardData || window.clipboardData).getData('text/plain');
+					document.execCommand('insertText', false, text);
+					linkifyContentEditable(notesArea);
+					exObj.notes = notesArea.innerText || '';
+					autoResize();
+					saveData();
+				});
+
+				// On blur, convert any manually typed URLs to links
+				notesArea.addEventListener('blur', () => {
+					linkifyContentEditable(notesArea);
+					// Note: innerText changes when we add links, so re-save
+					exObj.notes = notesArea.innerText || '';
+					saveData();
+				});
+
+				// Click handler to open links inside contenteditable
+				notesArea.addEventListener('click', (e) => {
+					let target = e.target;
+					while (target && target !== notesArea) {
+						if (target.tagName === 'A') {
+							e.preventDefault();
+							e.stopPropagation();
+							window.open(target.href, '_blank', 'noopener,noreferrer');
+							return;
+						}
+						target = target.parentNode;
+					}
 				});
 
 				setTimeout(autoResize, 0);
