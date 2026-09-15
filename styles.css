@@ -541,6 +541,17 @@ body {
 	font-weight: 600;
 }
 
+.day-pin-btn {
+	cursor: pointer;
+	-webkit-user-select: none;
+	user-select: none;
+	line-height: 1;
+}
+
+.history-day.pinned .day-header {
+	border-bottom-color: var(--primary-color);
+}
+
 .set-row {
 	display: flex;
 	align-items: center;

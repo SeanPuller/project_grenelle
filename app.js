@@ -1,4 +1,4 @@
-const APP_VERSION = '0.100';
+const APP_VERSION = '0.101';
 
 // Disable browser's automatic scroll restoration so SPA navigation controls scroll position
 if ('scrollRestoration' in history) {
@@ -1208,7 +1208,7 @@ function renderStandardGraphGlobal(wrapper, best1RMValue, levels, standards) {
 	function getExerciseObj(name) {
 		let ex = data.exercises.find(e => e.name === name);
 		if (!ex) {
-			ex = { name: name, types: ['kg', 'reps'], logs: [], notes: '', strengthStandards: {}, restTimer: 0 };
+			ex = { name: name, types: ['kg', 'reps'], logs: [], notes: '', strengthStandards: {}, restTimer: 0, pinnedDays: [] };
 			data.exercises.push(ex);
 		}
 		if (!ex.strengthStandards) {
@@ -1216,6 +1216,9 @@ function renderStandardGraphGlobal(wrapper, best1RMValue, levels, standards) {
 		}
 		if (ex.restTimer === undefined) {
 			ex.restTimer = 0;
+		}
+		if (!Array.isArray(ex.pinnedDays)) {
+			ex.pinnedDays = [];
 		}
 		return ex;
 	}
@@ -2878,15 +2881,22 @@ function renderStandardGraphGlobal(wrapper, best1RMValue, levels, standards) {
 
 				const referenceSessionLogs = (() => {
 					const today = getCurrentDate();
+					const toSortKey = (d) => d.split('-').reverse().join('');
+					const byDateDesc = (a, b) => toSortKey(b).localeCompare(toSortKey(a));
+
+					// A pinned day takes priority over the most recent session for prefilling
+					const pinnedDates = (exObj.pinnedDays || [])
+						.filter(d => d !== today && exObj.logs.some(l => l.date === d))
+						.sort(byDateDesc);
+
 					const pastLogs = exObj.logs.filter(l => l.date !== today);
-					if (pastLogs.length === 0) return [];
-					const sortedPast = [...pastLogs].sort((a, b) => {
-						const da = a.date.split('-').reverse().join('');
-						const db = b.date.split('-').reverse().join('');
-						return db.localeCompare(da);
-					});
-					const lastDate = sortedPast[0].date;
-					return exObj.logs.filter(l => l.date === lastDate).sort((a, b) => (a.ts || 0) - (b.ts || 0));
+					if (pinnedDates.length === 0 && pastLogs.length === 0) return [];
+
+					const refDate = pinnedDates.length > 0
+						? pinnedDates[0]
+						: [...pastLogs].sort((a, b) => byDateDesc(a.date, b.date))[0].date;
+
+					return exObj.logs.filter(l => l.date === refDate).sort((a, b) => (a.ts || 0) - (b.ts || 0));
 				})();
 
 				const today = getCurrentDate();
@@ -3184,10 +3194,23 @@ function renderStandardGraphGlobal(wrapper, best1RMValue, levels, standards) {
 					const [dd, mm, yyyy] = d.split('-');
 					return new Date(`${yyyy}-${mm}-${dd}`).getTime();
 				};
-				const sortedDates = Object.keys(grouped).sort((a, b) => parseDateKey(b) - parseDateKey(a));
+				const todayStr = getCurrentDate();
+				const pinnedDates = (exObj.pinnedDays || []).filter(d => grouped[d]);
+				// Order: today first, then pinned days, then newest to oldest
+				const sortedDates = Object.keys(grouped).sort((a, b) => {
+					const aIsToday = a === todayStr;
+					const bIsToday = b === todayStr;
+					if (aIsToday !== bIsToday) return aIsToday ? -1 : 1;
+					const aIsPinned = pinnedDates.includes(a);
+					const bIsPinned = pinnedDates.includes(b);
+					if (aIsPinned !== bIsPinned) return aIsPinned ? -1 : 1;
+					return parseDateKey(b) - parseDateKey(a);
+				});
 				sortedDates.forEach(dateStr => {
 					const dayDiv = document.createElement('div');
 					dayDiv.className = 'history-day';
+					const isPinned = pinnedDates.includes(dateStr);
+					if (isPinned) dayDiv.classList.add('pinned');
 
 					// Compute common tags for this day
 					const daySets = grouped[dateStr];
@@ -3201,12 +3224,17 @@ function renderStandardGraphGlobal(wrapper, best1RMValue, levels, standards) {
 
 					const header = document.createElement('div');
 					header.className = 'day-header';
-					const todayStr = new Date().toLocaleDateString('en-GB').replace(/\//g, '-');
 					let headerText = dateStr === todayStr ? 'today' : dateStr;
 					if (commonTags.length > 0) {
 						headerText += '  ' + commonTags.map(t => `#${t}`).join(' ');
 					}
 					header.innerHTML = `<span>${headerText}</span>`;
+
+					const headerRight = document.createElement('span');
+					headerRight.style.display = 'flex';
+					headerRight.style.alignItems = 'center';
+					headerRight.style.gap = '8px';
+
 					const showVolExercises = data.settings?.showVolumeExercises !== false;
 					if (showVolExercises) {
 						const dayVol = calculateLogsVolume(daySets);
@@ -3216,9 +3244,30 @@ function renderStandardGraphGlobal(wrapper, best1RMValue, levels, standards) {
 							volSpan.style.fontWeight = '400';
 							volSpan.style.color = 'var(--text-light)';
 							volSpan.textContent = `${Math.round(dayVol)} kg`;
-							header.appendChild(volSpan);
+							headerRight.appendChild(volSpan);
 						}
 					}
+
+					const pinBtn = document.createElement('span');
+					pinBtn.className = 'material-icons-outlined day-pin-btn' + (isPinned ? ' pinned' : '');
+					pinBtn.textContent = 'push_pin';
+					pinBtn.title = isPinned ? 'unpin this day' : 'pin this day (used to prefill sets)';
+					pinBtn.style.fontSize = '16px';
+					pinBtn.style.color = isPinned ? 'var(--text-dark)' : 'var(--text-disabled)';
+					pinBtn.addEventListener('click', (e) => {
+						e.stopPropagation();
+						if (!Array.isArray(exObj.pinnedDays)) exObj.pinnedDays = [];
+						if (exObj.pinnedDays.includes(dateStr)) {
+							exObj.pinnedDays = exObj.pinnedDays.filter(d => d !== dateStr);
+						} else {
+							exObj.pinnedDays.push(dateStr);
+						}
+						saveData();
+						renderView('exercise-detail');
+					});
+					headerRight.appendChild(pinBtn);
+
+					header.appendChild(headerRight);
 					dayDiv.appendChild(header);
 
 					let workSetCount = 0;
